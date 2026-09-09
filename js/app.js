@@ -8,7 +8,7 @@
     page: "dashboard",
     settings: { store_name: "UD Fikri", active_date: localDate() },
     employees: [], imports: [], products: [], salaries: [], withdrawals: [],
-    expenses: [], rules: [], reports: [], parsedImport: null
+    expenses: [], rules: [], reports: [], profile: null, profiles: [], categories: [], audits: [], parsedImport: null
   };
 
   const titles = {
@@ -32,6 +32,7 @@
       day: "2-digit", month: "short", year: "numeric"
     });
   }
+  function formatTimestamp(value) { return value ? new Date(value).toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }) : "-"; }
   function escapeHtml(value) {
     return String(value ?? "").replace(/[&<>"']/g, char => ({
       "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -90,6 +91,11 @@
   function currentExpenses() { return state.expenses.filter(row => row.expense_date === currentDate()); }
   function activeEmployees() { return state.employees.filter(row => row.active); }
   function activeRules() { return state.rules.filter(row => row.active).sort((a, b) => num(a.sort_order) - num(b.sort_order)); }
+  function role() { return state.profile?.role || "viewer"; }
+  function canWrite() { return ["superadmin", "admin", "staff"].includes(role()) && state.profile?.active !== false; }
+  function canDelete() { return ["superadmin", "admin"].includes(role()) && state.profile?.active !== false; }
+  function canManageMaster() { return ["superadmin", "admin"].includes(role()); }
+  function canManageUsers() { return role() === "superadmin"; }
 
   function salaryLedger() {
     return state.employees.map(employee => {
@@ -148,6 +154,7 @@
   async function loadData() {
     setLoading(true);
     try {
+      const { data: { user } } = await db.auth.getUser();
       const queries = await Promise.all([
         db.from("settings").select("*").eq("id", 1).maybeSingle(),
         db.from("employees").select("*").order("name"),
@@ -157,12 +164,22 @@
         db.from("salary_withdrawals").select("*").order("withdrawal_date", { ascending: false }),
         db.from("expenses").select("*").order("expense_date", { ascending: false }),
         db.from("allocation_rules").select("*").order("sort_order"),
-        db.from("daily_reports").select("*").order("report_date", { ascending: false })
+        db.from("daily_reports").select("*").order("report_date", { ascending: false }),
+        db.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+        db.from("profiles").select("*").order("full_name"),
+        db.from("expense_categories").select("*").order("name"),
+        db.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100)
       ]);
       queries.forEach(assertResult);
       state.settings = queries[0].data || state.settings;
-      [state.employees, state.imports, state.products, state.salaries, state.withdrawals, state.expenses, state.rules, state.reports] = queries.slice(1).map(result => result.data || []);
+      [state.employees, state.imports, state.products, state.salaries, state.withdrawals, state.expenses, state.rules, state.reports] = queries.slice(1, 9).map(result => result.data || []);
+      state.profile = queries[9].data;
+      state.profiles = queries[10].data || [];
+      state.categories = queries[11].data || [];
+      state.audits = queries[12].data || [];
+      if (!state.profile?.active) throw new Error("Akun Anda belum aktif atau telah dinonaktifkan.");
       $("#brandName").textContent = state.settings.store_name;
+      $("#userRole").textContent = role().toUpperCase();
       $("#activeDate").value = currentDate();
       renderPage();
     } catch (error) {
@@ -183,6 +200,14 @@
     const renderers = { dashboard: renderDashboard, sales: renderSales, salary: renderSalary, expenses: renderExpenses, master: renderMaster };
     $("#mainContent").innerHTML = renderers[state.page]();
     bindPageEvents();
+    applyPermissions();
+  }
+
+  function applyPermissions() {
+    if (!canWrite()) $$("#mainContent form input, #mainContent form select, #mainContent form textarea, #mainContent form button, #mainContent [data-action]").forEach(element => element.disabled = true);
+    if (!canDelete()) $$('[data-action^="delete-"]').forEach(element => element.remove());
+    if (!canManageMaster()) $$('[data-action$="category"]').forEach(element => element.remove());
+    if (!canManageUsers()) $$('[data-action="edit-profile"]').forEach(element => element.remove());
   }
 
   function metric(label, value, tone = "") {
@@ -249,8 +274,8 @@
       </section>
       <section class="card section-gap"><div class="section-title-row"><h4>Produk terjual</h4><div class="button-row">${imported ? `<button class="button primary small" data-action="add-product" data-id="${imported.id}">Tambah manual</button><button class="button danger small" data-action="delete-import" data-id="${imported.id}">Hapus seluruh import</button>` : ""}</div></div><div class="table-wrap"><table><thead><tr><th>Produk</th><th>Penjualan</th><th>Item</th><th>Laba</th><th>Modal</th><th>Aksi</th></tr></thead><tbody>${productRows}</tbody></table></div></section>
       <section class="grid two section-gap">
-        <article class="card"><div class="section-title-row"><h4>Gaji & bonus yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-salary">Tambah</button><button class="button edit small" data-go="salary">Riwayat gaji</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${salaryDeductions}</tbody></table></div></article>
-        <article class="card"><div class="section-title-row"><h4>Pengeluaran yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-expense">Tambah</button><button class="button edit small" data-go="expenses">Riwayat pengeluaran</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${expenseDeductions}</tbody></table></div></article>
+        <article class="card"><div class="section-title-row"><h4>Gaji & bonus</h4><div class="button-row"><button class="button primary small" data-action="add-salary">Tambah</button><button class="button edit small" data-go="salary">Riwayat gaji</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${salaryDeductions}</tbody></table></div></article>
+        <article class="card"><div class="section-title-row"><h4>Pengeluaran</h4><div class="button-row"><button class="button primary small" data-action="add-expense">Tambah</button><button class="button edit small" data-go="expenses">Riwayat pengeluaran</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${expenseDeductions}</tbody></table></div></article>
       </section>
       <section class="card section-gap"><h4>Finalisasi laporan</h4><div class="notice ${summary.deficit > 0 ? "danger-note" : "info"}"><strong>${summary.deficit > 0 ? `Defisit ${rupiah(summary.deficit)}` : `Total potongan ${rupiah(summary.salary + summary.expenses + summary.fixedAllocations)}`}</strong><br>Gaji & bonus ${rupiah(summary.salary)} + semua pengeluaran ${rupiah(summary.expenses)} + alokasi tetap ${rupiah(summary.fixedAllocations)}.</div><p class="muted">Data gaji tetap masuk Riwayat Gaji. Data pengeluaran tetap masuk Riwayat Pengeluaran.</p><button class="button success" data-action="close-book" ${imported && !locked ? "" : "disabled"}>${report ? "Perbarui dan kunci kembali" : "Simpan dan kunci tutup buku"}</button></section>`;
   }
@@ -287,17 +312,21 @@
     const todayRows = currentExpenses();
     const summary = calculation();
     const employeeOptions = activeEmployees().map(row => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join("");
+    const categoryOptions = state.categories.filter(row => row.active).map(row => `<option value="${escapeHtml(row.name)}">${escapeHtml(row.name)}</option>`).join("");
     const history = state.expenses.length ? [...state.expenses].sort(byNewest).map(row => `<tr><td>${formatDate(row.expense_date)}</td><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td><td><div class="button-row"><button class="button edit small" data-action="edit-expense" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-expense" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada riwayat pengeluaran.</td></tr>';
     return `
       <div class="page-head"><div><h3>Pengeluaran</h3><p>Semua pengeluaran mengurangi laba pada tanggal pencatatan.</p></div></div>
       <section class="grid metric-grid">${metric("Total hari ini", rupiah(summary.expenses), "negative")}${metric("Terkait karyawan", rupiah(summary.employeeExpenses))}${metric("Jumlah catatan", todayRows.length)}${metric("Tanggal", formatDate(currentDate()))}</section>
-      <form id="expenseForm" class="card"><h4>Catat pengeluaran</h4><div class="notice">Memilih nama karyawan hanya menandai penerima atau pengguna dana. Catatan ini tetap berbeda dari gaji dan tidak mengurangi saldo gaji.</div><div class="form-grid"><div class="field"><label>Kategori</label><input id="expenseCategory" required placeholder="Contoh: makan, bensin, listrik"></div><div class="field"><label>Karyawan (opsional)</label><select id="expenseEmployee"><option value="">Bukan pengeluaran karyawan</option>${employeeOptions}</select></div><div class="field"><label>Nominal</label><input id="expenseAmount" type="number" min="1" required></div><div class="field"><label>Keterangan</label><input id="expenseDescription" placeholder="Catatan penggunaan dana"></div></div><button class="button primary section-gap" type="submit">Simpan pengeluaran</button></form>
+      <form id="expenseForm" class="card"><h4>Catat pengeluaran</h4><div class="notice">Memilih nama karyawan hanya menandai penerima atau pengguna dana. Catatan ini tetap berbeda dari gaji dan tidak mengurangi saldo gaji.</div><div class="form-grid"><div class="field"><label>Kategori</label><select id="expenseCategory" required>${categoryOptions || '<option value="Lainnya">Lainnya</option>'}</select></div><div class="field"><label>Karyawan (opsional)</label><select id="expenseEmployee"><option value="">Bukan pengeluaran karyawan</option>${employeeOptions}</select></div><div class="field"><label>Nominal</label><input id="expenseAmount" type="number" min="1" required></div><div class="field"><label>Keterangan</label><input id="expenseDescription" placeholder="Catatan penggunaan dana"></div></div><button class="button primary section-gap" type="submit">Simpan pengeluaran</button></form>
       <section class="card section-gap"><h4>Riwayat semua pengeluaran</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Aksi</th></tr></thead><tbody>${history}</tbody></table></div></section>`;
   }
 
   function renderMaster() {
     const employees = state.employees.length ? state.employees.map(row => `<tr><td><strong>${escapeHtml(row.name)}</strong></td><td>${rupiah(row.daily_salary)}</td><td><span class="pill ${row.active ? "" : "off"}">${row.active ? "Aktif" : "Nonaktif"}</span></td><td><div class="button-row"><button class="button edit small" data-action="edit-employee" data-id="${row.id}">Edit</button><button class="button ${row.active ? "variant" : "success"} small" data-action="toggle-employee" data-id="${row.id}" data-active="${!row.active}">${row.active ? "Nonaktifkan" : "Aktifkan"}</button><button class="button danger small" data-action="delete-employee" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="4" class="empty">Belum ada karyawan.</td></tr>';
     const rules = state.rules.length ? state.rules.map(row => `<tr><td>${row.sort_order}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${row.rule_type === "fixed" ? "Nominal tetap" : "Persentase"}</td><td>${row.rule_type === "fixed" ? rupiah(row.value) : `${num(row.value)}%`}</td><td><span class="pill ${row.active ? "" : "off"}">${row.active ? "Aktif" : "Nonaktif"}</span></td><td><div class="button-row"><button class="button edit small" data-action="edit-rule" data-id="${row.id}">Edit</button><button class="button ${row.active ? "variant" : "success"} small" data-action="toggle-rule" data-id="${row.id}" data-active="${!row.active}">${row.active ? "Nonaktifkan" : "Aktifkan"}</button><button class="button danger small" data-action="delete-rule" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="6" class="empty">Belum ada aturan.</td></tr>';
+    const categories = state.categories.length ? state.categories.map(row => `<tr><td><strong>${escapeHtml(row.name)}</strong></td><td><span class="pill ${row.active ? "" : "off"}">${row.active ? "Aktif" : "Nonaktif"}</span></td><td><div class="button-row"><button class="button edit small" data-action="edit-category" data-id="${row.id}">Edit</button><button class="button variant small" data-action="toggle-category" data-id="${row.id}" data-active="${!row.active}">${row.active ? "Nonaktifkan" : "Aktifkan"}</button><button class="button danger small" data-action="delete-category" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="3" class="empty">Belum ada kategori.</td></tr>';
+    const profiles = state.profiles.length ? state.profiles.map(row => `<tr><td>${escapeHtml(row.full_name || "-")}</td><td>${escapeHtml(row.email || "-")}</td><td><span class="pill">${escapeHtml(row.role)}</span></td><td>${row.active ? "Aktif" : "Nonaktif"}</td><td>${canManageUsers() ? `<button class="button edit small" data-action="edit-profile" data-id="${row.id}">Atur akses</button>` : "-"}</td></tr>`).join("") : '<tr><td colspan="5" class="empty">Belum ada pengguna.</td></tr>';
+    const auditRows = state.audits.length ? state.audits.map(row => { const profile = state.profiles.find(item => item.id === row.user_id); return `<tr><td>${formatTimestamp(row.created_at)}</td><td>${escapeHtml(profile?.full_name || profile?.email || "Sistem")}</td><td>${escapeHtml(row.action)}</td><td>${escapeHtml(row.table_name)}</td><td>${escapeHtml(row.record_id || "-")}</td></tr>`; }).join("") : '<tr><td colspan="5" class="empty">Audit hanya dapat dilihat Admin dan Superadmin.</td></tr>';
     return `
       <div class="page-head"><div><h3>Kelola data</h3><p>Atur identitas toko, karyawan, dan pembagian laba.</p></div></div>
       <section class="grid two">
@@ -309,7 +338,10 @@
         <form id="ruleForm" class="card"><h4>Tambah aturan pembagian</h4><div class="form-grid"><div class="field full"><label>Nama alokasi</label><input id="ruleName" required placeholder="Contoh: Dana darurat"></div><div class="field"><label>Jenis</label><select id="ruleType"><option value="fixed">Nominal tetap</option><option value="percent">Persentase</option></select></div><div class="field"><label>Nilai</label><input id="ruleValue" type="number" min="0" step="0.01" required></div><div class="field"><label>Urutan</label><input id="ruleOrder" type="number" min="1" value="99" required></div></div><button class="button primary section-gap" type="submit">Tambah aturan</button></form>
         <article class="card"><h4>Urutan pembagian</h4><div class="notice info">Nominal tetap dikurangi lebih dahulu. Sisa laba kemudian dibagi menggunakan aturan persentase aktif. Jumlah persentase idealnya 100%.</div></article>
       </section>
-      <section class="card section-gap"><h4>Aturan pembagian laba</h4><div class="table-wrap"><table><thead><tr><th>Urutan</th><th>Nama</th><th>Jenis</th><th>Nilai</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rules}</tbody></table></div></section>`;
+      <section class="card section-gap"><h4>Aturan pembagian laba</h4><div class="table-wrap"><table><thead><tr><th>Urutan</th><th>Nama</th><th>Jenis</th><th>Nilai</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${rules}</tbody></table></div></section>
+      <section class="card section-gap"><div class="section-title-row"><h4>Kategori pengeluaran</h4><button class="button primary small" data-action="add-category">Tambah kategori</button></div><div class="table-wrap"><table><thead><tr><th>Nama kategori</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${categories}</tbody></table></div></section>
+      <section class="card section-gap"><h4>Pengguna & role</h4><div class="notice info">Akun baru dibuat melalui Supabase Authentication, kemudian role-nya dapat diatur oleh Superadmin di sini.</div><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Email</th><th>Role</th><th>Status</th><th>Aksi</th></tr></thead><tbody>${profiles}</tbody></table></div></section>
+      <section class="card section-gap"><h4>100 aktivitas terakhir</h4><div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Pengguna</th><th>Aksi</th><th>Data</th><th>ID</th></tr></thead><tbody>${auditRows}</tbody></table></div></section>`;
   }
 
   function bindPageEvents() {
@@ -364,6 +396,11 @@
       if (action === "delete-report") await deleteRecord("daily_reports", id, "Laporan tutup buku");
       if (action === "toggle-employee") await toggleRecord("employees", id, button.dataset.active === "true");
       if (action === "toggle-rule") await toggleRecord("allocation_rules", id, button.dataset.active === "true");
+      if (action === "add-category") await addCategory();
+      if (action === "edit-category") await editCategory(id);
+      if (action === "toggle-category") await toggleRecord("expense_categories", id, button.dataset.active === "true");
+      if (action === "delete-category") await deleteRecord("expense_categories", id, "Kategori");
+      if (action === "edit-profile") await editProfile(id);
     } catch (error) { toast(error.message, "error"); }
   }
 
@@ -597,7 +634,7 @@
   async function addExpenseQuick() {
     ensureUnlocked();
     const data = await openFormModal("Tambah pengeluaran", [
-      { name: "category", label: "Kategori", required: true, placeholder: "Contoh: Makan, listrik, bensin" },
+      { name: "category", label: "Kategori", type: "select", required: true, options: state.categories.filter(row => row.active).map(row => ({ value: row.name, label: row.name })) },
       { name: "amount", label: "Nominal", type: "number", min: 1, required: true },
       { name: "employee_id", label: "Karyawan terkait", type: "select", options: [{ value: "", label: "Bukan pengeluaran karyawan" }, ...activeEmployees().map(row => ({ value: row.id, label: row.name }))] },
       { name: "description", label: "Catatan", type: "textarea", full: true }
@@ -619,7 +656,7 @@
     const row = state.expenses.find(item => item.id === id); if (!row) return;
     ensureDateUnlocked(row.expense_date);
     const data = await openFormModal("Edit pengeluaran", [
-      { name: "category", label: "Kategori", value: row.category, required: true },
+      { name: "category", label: "Kategori", type: "select", value: row.category, required: true, options: state.categories.map(item => ({ value: item.name, label: item.name })) },
       { name: "amount", label: "Nominal", type: "number", min: 1, value: row.amount, required: true },
       { name: "employee_id", label: "Karyawan terkait", type: "select", value: row.employee_id || "", options: [{ value: "", label: "Bukan pengeluaran karyawan" }, ...state.employees.map(item => ({ value: item.id, label: item.name }))] },
       { name: "description", label: "Catatan", type: "textarea", value: row.description || "", full: true }
@@ -673,6 +710,40 @@
     if (!data) return;
     assertResult(await db.from("allocation_rules").update({ name: data.name.trim(), rule_type: data.rule_type, value: num(data.value), sort_order: num(data.sort_order) }).eq("id", id));
     toast("Aturan diperbarui."); await loadData();
+  }
+
+  async function addCategory() {
+    if (!canManageMaster()) throw new Error("Hanya Admin atau Superadmin yang dapat mengelola kategori.");
+    const data = await openFormModal("Tambah kategori pengeluaran", [{ name: "name", label: "Nama kategori", required: true, full: true }], "Tambah kategori");
+    if (!data) return;
+    assertResult(await db.from("expense_categories").insert({ name: data.name.trim(), active: true }));
+    toast("Kategori ditambahkan."); await loadData();
+  }
+
+  async function editCategory(id) {
+    if (!canManageMaster()) throw new Error("Hanya Admin atau Superadmin yang dapat mengelola kategori.");
+    const row = state.categories.find(item => item.id === id); if (!row) return;
+    const data = await openFormModal("Edit kategori", [{ name: "name", label: "Nama kategori", value: row.name, required: true, full: true }]);
+    if (!data) return;
+    assertResult(await db.from("expense_categories").update({ name: data.name.trim() }).eq("id", id));
+    toast("Kategori diperbarui."); await loadData();
+  }
+
+  async function editProfile(id) {
+    if (!canManageUsers()) throw new Error("Hanya Superadmin yang dapat mengatur akses pengguna.");
+    const row = state.profiles.find(item => item.id === id); if (!row) return;
+    const data = await openFormModal("Atur akses pengguna", [
+      { name: "full_name", label: "Nama", value: row.full_name || "", required: true },
+      { name: "role", label: "Role", type: "select", value: row.role, options: [
+        { value: "superadmin", label: "Superadmin" }, { value: "admin", label: "Admin" },
+        { value: "staff", label: "Staff" }, { value: "viewer", label: "Viewer" }
+      ] },
+      { name: "active", label: "Status", type: "select", value: String(row.active), options: [{ value: "true", label: "Aktif" }, { value: "false", label: "Nonaktif" }] }
+    ]);
+    if (!data) return;
+    if (row.id === state.profile.id && data.active === "false") throw new Error("Anda tidak dapat menonaktifkan akun sendiri.");
+    assertResult(await db.from("profiles").update({ full_name: data.full_name.trim(), role: data.role, active: data.active === "true", updated_at: new Date().toISOString() }).eq("id", id));
+    toast("Akses pengguna diperbarui."); await loadData();
   }
 
   async function deleteRecord(table, id, label) {
