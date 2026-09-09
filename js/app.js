@@ -260,8 +260,8 @@
     const products = state.products.filter(row => row.report_date === currentDate());
     const summary = calculation();
     const productRows = products.length
-      ? products.map(row => `<tr><td>${escapeHtml(row.product)}</td><td>${rupiah(row.sales)}</td><td><input class="item-input" data-id="${row.id}" type="number" step="0.01" min="0" value="${num(row.items)}"></td><td>${rupiah(row.profit)}</td><td class="capital-cell"><strong>${rupiah(row.capital)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-product" data-id="${row.id}">Edit</button><button class="button secondary small" data-action="save-item" data-id="${row.id}">Simpan item</button><button class="button danger small" data-action="delete-product" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
-      : '<tr><td colspan="6" class="empty">Belum ada produk pada tanggal ini.</td></tr>';
+      ? products.map(row => `<tr data-product-row="${row.id}" data-sales="${num(row.sales)}"><td>${escapeHtml(row.product)}</td><td>${rupiah(row.sales)}</td><td><input class="item-input" data-id="${row.id}" type="number" step="0.01" min="0" value="${num(row.items)}"></td><td><input class="unit-capital-input" data-id="${row.id}" type="number" step="0.0001" min="0" value="${num(row.unit_capital)}"></td><td><span class="live-profit">${rupiah(row.profit)}</span></td><td class="capital-cell"><strong class="live-capital">${rupiah(row.capital)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-product" data-id="${row.id}">Edit</button><button class="button secondary small" data-action="save-item" data-id="${row.id}">Simpan hitungan</button><button class="button danger small" data-action="delete-product" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
+      : '<tr><td colspan="7" class="empty">Belum ada produk pada tanggal ini.</td></tr>';
     const salaryDeductions = currentSalaries().length ? currentSalaries().map(row => `<tr><td>Gaji</td><td>${escapeHtml(row.employee_name)}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(row.bonus)}</td><td><strong>${rupiah(row.total)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-salary" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-salary" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="6" class="empty">Belum ada gaji tanggal ini.</td></tr>';
     const expenseDeductions = currentExpenses().length ? currentExpenses().map(row => `<tr><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td><strong>${rupiah(row.amount)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-expense" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-expense" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="6" class="empty">Belum ada pengeluaran tanggal ini.</td></tr>';
     return `
@@ -282,7 +282,7 @@
           <div class="split-row"><span>Ongkos kirim</span><strong>${rupiah(summary.shipping)}</strong></div>
         </article>
       </section>
-      <section class="card section-gap"><div class="section-title-row"><h4>Produk terjual</h4><div class="button-row">${imported ? `<button class="button primary small" data-action="add-product" data-id="${imported.id}">Tambah manual</button><button class="button danger small" data-action="delete-import" data-id="${imported.id}">Hapus seluruh import</button>` : ""}</div></div><div class="table-wrap"><table><thead><tr><th>Produk</th><th>Penjualan</th><th>Item</th><th>Laba</th><th>Modal</th><th>Aksi</th></tr></thead><tbody>${productRows}</tbody></table></div></section>
+      <section class="card section-gap"><div class="section-title-row"><h4>Produk terjual</h4><div class="button-row">${imported ? `<button class="button primary small" data-action="add-product" data-id="${imported.id}">Tambah manual</button><button class="button danger small" data-action="delete-import" data-id="${imported.id}">Hapus seluruh import</button>` : ""}</div></div><div class="notice info">Modal satuan dihitung dari data impor dan dapat disesuaikan. Mengubah item atau modal satuan akan menghitung ulang modal total dan laba.</div><div class="table-wrap"><table><thead><tr><th>Produk</th><th>Penjualan</th><th>Item</th><th>Modal/satuan</th><th>Laba</th><th>Modal total</th><th>Aksi</th></tr></thead><tbody>${productRows}</tbody></table></div></section>
       <section class="grid two section-gap">
         <article class="card"><div class="section-title-row"><h4>Gaji & bonus yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-salary">Tambah</button><button class="button edit small" data-go="salary">Riwayat gaji</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${salaryDeductions}</tbody></table></div></article>
         <article class="card"><div class="section-title-row"><h4>Pengeluaran yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-expense">Tambah</button><button class="button edit small" data-go="expenses">Riwayat pengeluaran</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${expenseDeductions}</tbody></table></div></article>
@@ -365,6 +365,7 @@
     if ($("#employeeForm")) $("#employeeForm").onsubmit = saveEmployee;
     if ($("#ruleForm")) $("#ruleForm").onsubmit = saveRule;
     $$(".salary-present, .salary-base, .salary-bonus").forEach(input => input.oninput = updateSalaryTotal);
+    $$(".item-input, .unit-capital-input").forEach(input => input.oninput = updateProductCostPreview);
     if ($("#salarySearch")) $("#salarySearch").oninput = filterSalaryHistory;
     if ($("#salarySort")) $("#salarySort").onchange = filterSalaryHistory;
   }
@@ -373,6 +374,15 @@
     const row = event.target.closest(".salary-line");
     const total = $(".salary-present", row).checked ? num($(".salary-base", row).value) + num($(".salary-bonus", row).value) : 0;
     $(".salary-total", row).textContent = rupiah(total);
+  }
+  function updateProductCostPreview(event) {
+    const row = event.target.closest("[data-product-row]");
+    if (!row) return;
+    const items = num($(".item-input", row).value);
+    const unitCapital = num($(".unit-capital-input", row).value);
+    const capital = items * unitCapital;
+    $(".live-capital", row).textContent = rupiah(capital);
+    $(".live-profit", row).textContent = rupiah(num(row.dataset.sales) - capital);
   }
   function filterSalaryHistory() {
     $("#salaryHistory").innerHTML = salaryHistoryRows($("#salarySearch").value.trim(), $("#salarySort").value);
@@ -437,9 +447,14 @@
           return;
         }
         if (lower.includes("ongkos kirim")) { shipping += num(row[column("penjualan")]); return; }
+        const sales = num(row[column("penjualan")]);
+        const productItems = num(row[column("item")]);
+        const profit = num(row[column("laba")]);
+        const capital = sales - profit;
         products.push({
-          product, sales: num(row[column("penjualan")]), transactions: num(row[column("transaksi")]),
-          items: num(row[column("item")]), discount: num(row[column("diskon")]), profit: num(row[column("laba")])
+          product, sales, transactions: num(row[column("transaksi")]), items: productItems,
+          discount: num(row[column("diskon")]), profit, capital,
+          unit_capital: productItems > 0 ? capital / productItems : 0
         });
       });
       if (!products.length) throw new Error("Data produk tidak ditemukan.");
@@ -476,7 +491,7 @@
       assertResult(await db.from("import_products").insert(parsed.products.map(row => ({
         import_id: imported.id, report_date: currentDate(), product: row.product, sales: row.sales,
         transactions: row.transactions, items: row.items, discount: row.discount, profit: row.profit,
-        capital: row.sales - row.profit
+        unit_capital: row.unit_capital, capital: row.capital
       }))));
       state.parsedImport = null;
       toast("Laporan Griyo Pos berhasil diimpor.");
@@ -487,21 +502,24 @@
   async function saveItem(id) {
     ensureUnlocked();
     const input = $(`.item-input[data-id="${id}"]`);
-    const value = num(input.value);
-    if (value < 0) throw new Error("Jumlah item tidak valid.");
-    assertResult(await db.from("import_products").update({ items: value }).eq("id", id));
-    const imported = currentImport();
-    const newTotal = state.products.filter(row => row.import_id === imported.id).reduce((total, row) => total + (row.id === id ? value : num(row.items)), 0);
-    assertResult(await db.from("sales_imports").update({ items: newTotal }).eq("id", imported.id));
-    toast("Jumlah item diperbarui.");
+    const unitInput = $(`.unit-capital-input[data-id="${id}"]`);
+    const items = num(input.value);
+    const unitCapital = num(unitInput.value);
+    const row = state.products.find(item => item.id === id);
+    if (!row || items < 0 || unitCapital < 0) throw new Error("Jumlah item atau modal satuan tidak valid.");
+    const capital = items * unitCapital;
+    const profit = num(row.sales) - capital;
+    assertResult(await db.from("import_products").update({ items, unit_capital: unitCapital, capital, profit }).eq("id", id));
+    await refreshImportTotals(row.import_id);
+    toast("Item, modal, dan laba diperbarui.");
     await loadData();
   }
 
   async function refreshImportTotals(importId) {
-    const rows = assertResult(await db.from("import_products").select("sales,profit,items,discount").eq("import_id", importId));
+    const rows = assertResult(await db.from("import_products").select("sales,profit,capital,items,discount").eq("import_id", importId));
     const productSales = sum(rows, "sales");
     const grossProfit = sum(rows, "profit");
-    assertResult(await db.from("sales_imports").update({ product_sales: productSales, gross_profit: grossProfit, capital: productSales - grossProfit, items: sum(rows, "items"), discount: sum(rows, "discount") }).eq("id", importId));
+    assertResult(await db.from("sales_imports").update({ product_sales: productSales, gross_profit: grossProfit, capital: sum(rows, "capital"), items: sum(rows, "items"), discount: sum(rows, "discount") }).eq("id", importId));
   }
 
   async function addProduct(importId) {
@@ -510,13 +528,13 @@
       { name: "product", label: "Nama produk", required: true, full: true },
       { name: "sales", label: "Penjualan", type: "number", min: 0, required: true },
       { name: "items", label: "Jumlah item", type: "number", min: 0, step: .01, required: true },
-      { name: "profit", label: "Laba", type: "number", min: 0, required: true },
+      { name: "unit_capital", label: "Modal per satuan", type: "number", min: 0, step: .0001, required: true },
       { name: "discount", label: "Diskon", type: "number", min: 0, value: 0, required: true }
     ], "Tambah produk");
     if (!data) return;
-    const sales = num(data.sales), profit = num(data.profit);
-    if (profit > sales) throw new Error("Laba tidak boleh lebih besar daripada penjualan.");
-    assertResult(await db.from("import_products").insert({ import_id: importId, report_date: currentDate(), product: data.product.trim(), sales, transactions: 0, items: num(data.items), discount: num(data.discount), profit, capital: sales - profit }));
+    const sales = num(data.sales), items = num(data.items), unitCapital = num(data.unit_capital);
+    const capital = items * unitCapital, profit = sales - capital;
+    assertResult(await db.from("import_products").insert({ import_id: importId, report_date: currentDate(), product: data.product.trim(), sales, transactions: 0, items, discount: num(data.discount), unit_capital: unitCapital, profit, capital }));
     await refreshImportTotals(importId); toast("Produk ditambahkan."); await loadData();
   }
 
@@ -527,13 +545,13 @@
       { name: "product", label: "Nama produk", value: row.product, required: true, full: true },
       { name: "sales", label: "Penjualan", type: "number", min: 0, value: row.sales, required: true },
       { name: "items", label: "Jumlah item", type: "number", min: 0, step: .01, value: row.items, required: true },
-      { name: "profit", label: "Laba", type: "number", min: 0, value: row.profit, required: true },
+      { name: "unit_capital", label: "Modal per satuan", type: "number", min: 0, step: .0001, value: row.unit_capital, required: true },
       { name: "discount", label: "Diskon", type: "number", min: 0, value: row.discount, required: true }
     ]);
     if (!data) return;
-    const sales = num(data.sales), profit = num(data.profit);
-    if (profit > sales) throw new Error("Laba tidak boleh lebih besar daripada penjualan.");
-    assertResult(await db.from("import_products").update({ product: data.product.trim(), sales, items: num(data.items), profit, discount: num(data.discount), capital: sales - profit }).eq("id", id));
+    const sales = num(data.sales), items = num(data.items), unitCapital = num(data.unit_capital);
+    const capital = items * unitCapital, profit = sales - capital;
+    assertResult(await db.from("import_products").update({ product: data.product.trim(), sales, items, unit_capital: unitCapital, profit, discount: num(data.discount), capital }).eq("id", id));
     await refreshImportTotals(row.import_id); toast("Produk diperbarui."); await loadData();
   }
 
