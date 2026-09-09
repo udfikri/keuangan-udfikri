@@ -160,8 +160,8 @@
       ? summary.allocations.map(row => `<div class="split-row"><span>${escapeHtml(row.name)}${row.type === "percent" ? ` (${row.value}%)` : ""}</span><strong>${rupiah(row.amount)}</strong></div>`).join("")
       : '<div class="empty">Belum ada pembagian untuk tanggal ini.</div>';
     const history = state.reports.length
-      ? state.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.profit_to_share)}</td><td>${rupiah(row.owner_result)}</td></tr>`).join("")
-      : '<tr><td colspan="8" class="empty">Belum ada riwayat tutup buku.</td></tr>';
+      ? state.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.profit_to_share)}</td><td>${rupiah(row.owner_result)}</td><td><button class="button danger small" data-action="delete-report" data-id="${row.id}">Hapus</button></td></tr>`).join("")
+      : '<tr><td colspan="9" class="empty">Belum ada riwayat tutup buku.</td></tr>';
     return `
       <div class="page-head"><div><h3>Ringkasan ${formatDate(currentDate())}</h3><p>Posisi penjualan dan pembagian laba tanggal aktif.</p></div><button class="button primary" data-go="sales">Import penjualan</button></div>
       <section class="grid metric-grid">
@@ -180,7 +180,7 @@
         </article>
         <article class="card"><h4>Pembagian hari ini</h4>${allocationRows}</article>
       </section>
-      <section class="card section-gap"><h4>Riwayat tutup buku</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Dibagi</th><th>Pemilik</th></tr></thead><tbody>${history}</tbody></table></div></section>`;
+      <section class="card section-gap"><h4>Riwayat tutup buku</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Dibagi</th><th>Pemilik</th><th>Aksi</th></tr></thead><tbody>${history}</tbody></table></div></section>`;
   }
 
   function renderSales() {
@@ -188,8 +188,10 @@
     const products = state.products.filter(row => row.report_date === currentDate());
     const summary = calculation();
     const productRows = products.length
-      ? products.map(row => `<tr><td>${escapeHtml(row.product)}</td><td>${rupiah(row.sales)}</td><td><div class="button-row"><input class="item-input" data-id="${row.id}" type="number" step="0.01" min="0" value="${num(row.items)}"><button class="button secondary small" data-action="save-item" data-id="${row.id}">Simpan</button></div></td><td>${rupiah(row.profit)}</td><td>${rupiah(row.capital)}</td></tr>`).join("")
-      : '<tr><td colspan="5" class="empty">Belum ada produk pada tanggal ini.</td></tr>';
+      ? products.map(row => `<tr><td>${escapeHtml(row.product)}</td><td>${rupiah(row.sales)}</td><td><input class="item-input" data-id="${row.id}" type="number" step="0.01" min="0" value="${num(row.items)}"></td><td>${rupiah(row.profit)}</td><td>${rupiah(row.capital)}</td><td><div class="button-row"><button class="button edit small" data-action="edit-product" data-id="${row.id}">Edit</button><button class="button secondary small" data-action="save-item" data-id="${row.id}">Simpan item</button><button class="button danger small" data-action="delete-product" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
+      : '<tr><td colspan="6" class="empty">Belum ada produk pada tanggal ini.</td></tr>';
+    const salaryDeductions = currentSalaries().length ? currentSalaries().map(row => `<tr><td>Gaji</td><td>${escapeHtml(row.employee_name)}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(row.bonus)}</td><td>${rupiah(row.total)}</td></tr>`).join("") : '<tr><td colspan="5" class="empty">Belum ada gaji tanggal ini.</td></tr>';
+    const expenseDeductions = currentExpenses().length ? currentExpenses().map(row => `<tr><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td></tr>`).join("") : '<tr><td colspan="5" class="empty">Belum ada pengeluaran tanggal ini.</td></tr>';
     return `
       <div class="page-head"><div><h3>Import laporan Griyo Pos</h3><p>Pilih file Produk Terlaris untuk menghitung penjualan, laba, dan modal.</p></div></div>
       <section class="grid two">
@@ -207,8 +209,12 @@
           <div class="split-row"><span>Ongkos kirim</span><strong>${rupiah(summary.shipping)}</strong></div>
         </article>
       </section>
-      <section class="card section-gap"><h4>Produk terjual</h4><div class="table-wrap"><table><thead><tr><th>Produk</th><th>Penjualan</th><th>Item</th><th>Laba</th><th>Modal</th></tr></thead><tbody>${productRows}</tbody></table></div></section>
-      <section class="card section-gap"><h4>Finalisasi laporan</h4><p class="muted">Simpan setelah data impor, gaji, bonus, pengeluaran, dan pembagian laba sudah diperiksa.</p><button class="button success" data-action="close-book" ${imported ? "" : "disabled"}>Simpan tutup buku harian</button></section>`;
+      <section class="card section-gap"><div class="section-title-row"><h4>Produk terjual</h4><div class="button-row">${imported ? `<button class="button primary small" data-action="add-product" data-id="${imported.id}">Tambah manual</button><button class="button danger small" data-action="delete-import" data-id="${imported.id}">Hapus seluruh import</button>` : ""}</div></div><div class="table-wrap"><table><thead><tr><th>Produk</th><th>Penjualan</th><th>Item</th><th>Laba</th><th>Modal</th><th>Aksi</th></tr></thead><tbody>${productRows}</tbody></table></div></section>
+      <section class="grid two section-gap">
+        <article class="card"><div class="section-title-row"><h4>Gaji & bonus yang dipotong</h4><button class="button edit small" data-go="salary">Kelola gaji</button></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th></tr></thead><tbody>${salaryDeductions}</tbody></table></div></article>
+        <article class="card"><div class="section-title-row"><h4>Pengeluaran yang dipotong</h4><button class="button edit small" data-go="expenses">Kelola pengeluaran</button></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th></tr></thead><tbody>${expenseDeductions}</tbody></table></div></article>
+      </section>
+      <section class="card section-gap"><h4>Finalisasi laporan</h4><div class="notice info"><strong>Total potongan ${rupiah(summary.salary + summary.expenses + summary.fixedAllocations)}</strong><br>Gaji & bonus ${rupiah(summary.salary)} + semua pengeluaran ${rupiah(summary.expenses)} + alokasi tetap ${rupiah(summary.fixedAllocations)}.</div><p class="muted">Data gaji tetap masuk Riwayat Gaji. Data pengeluaran tetap masuk Riwayat Pengeluaran.</p><button class="button success" data-action="close-book" ${imported ? "" : "disabled"}>Simpan / perbarui tutup buku harian</button></section>`;
   }
 
   function renderSalary() {
@@ -228,22 +234,22 @@
         <form id="withdrawalForm" class="card"><h4>Pengambilan gaji</h4><div class="form-grid"><div class="field"><label>Karyawan</label><select id="withdrawEmployee" required>${options}</select></div><div class="field"><label>Nominal</label><input id="withdrawAmount" type="number" min="1" required></div><div class="field full"><label>Catatan</label><input id="withdrawNotes" placeholder="Keterangan pengambilan"></div></div><button class="button success section-gap" type="submit">Simpan pengambilan</button></form>
         <article class="card"><h4>Total gaji per karyawan</h4>${ledger}</article>
       </section>
-      <section class="card section-gap"><h4>Riwayat gaji</h4><div class="search-row"><input id="salarySearch" type="search" placeholder="Cari nama karyawan"><select id="salarySort"><option value="az">Nama A–Z</option><option value="za">Nama Z–A</option><option value="newest">Tanggal terbaru</option></select></div><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Jenis</th><th>Gaji pokok</th><th>Bonus</th><th>Total</th><th>Catatan</th></tr></thead><tbody id="salaryHistory">${salaryHistoryRows("", "az")}</tbody></table></div></section>`;
+      <section class="card section-gap"><h4>Riwayat gaji</h4><div class="search-row"><input id="salarySearch" type="search" placeholder="Cari nama karyawan"><select id="salarySort"><option value="az">Nama A–Z</option><option value="za">Nama Z–A</option><option value="newest">Tanggal terbaru</option></select></div><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Jenis</th><th>Gaji pokok</th><th>Bonus</th><th>Total</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody id="salaryHistory">${salaryHistoryRows("", "az")}</tbody></table></div></section>`;
   }
 
   function salaryHistoryRows(query, sortMode) {
-    const earned = state.salaries.map(row => ({ date: row.salary_date, employee_name: row.employee_name, type: "Gaji harian", base: num(row.base_salary), bonus: num(row.bonus), total: num(row.total), notes: row.notes || "" }));
-    const taken = state.withdrawals.map(row => ({ date: row.withdrawal_date, employee_name: row.employee_name, type: "Pengambilan gaji", base: null, bonus: null, total: -num(row.amount), notes: row.notes || "" }));
+    const earned = state.salaries.map(row => ({ id: row.id, source: "salary", date: row.salary_date, employee_name: row.employee_name, type: "Gaji harian", base: num(row.base_salary), bonus: num(row.bonus), total: num(row.total), notes: row.notes || "" }));
+    const taken = state.withdrawals.map(row => ({ id: row.id, source: "withdrawal", date: row.withdrawal_date, employee_name: row.employee_name, type: "Pengambilan gaji", base: null, bonus: null, total: -num(row.amount), notes: row.notes || "" }));
     const rows = [...earned, ...taken].filter(row => !query || row.employee_name.toLowerCase().includes(query.toLowerCase()));
     rows.sort((a, b) => sortMode === "az" ? a.employee_name.localeCompare(b.employee_name, "id") || b.date.localeCompare(a.date) : sortMode === "za" ? b.employee_name.localeCompare(a.employee_name, "id") || b.date.localeCompare(a.date) : b.date.localeCompare(a.date));
-    return rows.length ? rows.map(row => `<tr><td>${formatDate(row.date)}</td><td>${escapeHtml(row.employee_name)}</td><td>${row.type}</td><td>${row.base === null ? "-" : rupiah(row.base)}</td><td>${row.bonus === null ? "-" : rupiah(row.bonus)}</td><td class="${row.total < 0 ? "negative" : "positive"}">${row.total < 0 ? "− " : ""}${rupiah(Math.abs(row.total))}</td><td>${escapeHtml(row.notes || "-")}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">Data tidak ditemukan.</td></tr>';
+    return rows.length ? rows.map(row => `<tr><td>${formatDate(row.date)}</td><td>${escapeHtml(row.employee_name)}</td><td>${row.type}</td><td>${row.base === null ? "-" : rupiah(row.base)}</td><td>${row.bonus === null ? "-" : rupiah(row.bonus)}</td><td class="${row.total < 0 ? "negative" : "positive"}">${row.total < 0 ? "− " : ""}${rupiah(Math.abs(row.total))}</td><td>${escapeHtml(row.notes || "-")}</td><td><div class="button-row"><button class="button edit small" data-action="edit-${row.source}" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-${row.source}" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="8" class="empty">Data tidak ditemukan.</td></tr>';
   }
 
   function renderExpenses() {
     const todayRows = currentExpenses();
     const summary = calculation();
     const employeeOptions = activeEmployees().map(row => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join("");
-    const history = state.expenses.length ? [...state.expenses].sort(byNewest).map(row => `<tr><td>${formatDate(row.expense_date)}</td><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td><td><button class="button danger small" data-action="delete-expense" data-id="${row.id}">Hapus</button></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada riwayat pengeluaran.</td></tr>';
+    const history = state.expenses.length ? [...state.expenses].sort(byNewest).map(row => `<tr><td>${formatDate(row.expense_date)}</td><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td><td><div class="button-row"><button class="button edit small" data-action="edit-expense" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-expense" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada riwayat pengeluaran.</td></tr>';
     return `
       <div class="page-head"><div><h3>Pengeluaran</h3><p>Semua pengeluaran mengurangi laba pada tanggal pencatatan.</p></div></div>
       <section class="grid metric-grid">${metric("Total hari ini", rupiah(summary.expenses), "negative")}${metric("Terkait karyawan", rupiah(summary.employeeExpenses))}${metric("Jumlah catatan", todayRows.length)}${metric("Tanggal", formatDate(currentDate()))}</section>
@@ -252,8 +258,8 @@
   }
 
   function renderMaster() {
-    const employees = state.employees.length ? state.employees.map(row => `<tr><td><strong>${escapeHtml(row.name)}</strong></td><td>${rupiah(row.daily_salary)}</td><td><span class="pill ${row.active ? "" : "off"}">${row.active ? "Aktif" : "Nonaktif"}</span></td><td><button class="button ${row.active ? "danger" : "success"} small" data-action="toggle-employee" data-id="${row.id}" data-active="${!row.active}">${row.active ? "Nonaktifkan" : "Aktifkan"}</button></td></tr>`).join("") : '<tr><td colspan="4" class="empty">Belum ada karyawan.</td></tr>';
-    const rules = state.rules.length ? state.rules.map(row => `<tr><td>${row.sort_order}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${row.rule_type === "fixed" ? "Nominal tetap" : "Persentase"}</td><td>${row.rule_type === "fixed" ? rupiah(row.value) : `${num(row.value)}%`}</td><td><span class="pill ${row.active ? "" : "off"}">${row.active ? "Aktif" : "Nonaktif"}</span></td><td><button class="button ${row.active ? "danger" : "success"} small" data-action="toggle-rule" data-id="${row.id}" data-active="${!row.active}">${row.active ? "Nonaktifkan" : "Aktifkan"}</button></td></tr>`).join("") : '<tr><td colspan="6" class="empty">Belum ada aturan.</td></tr>';
+    const employees = state.employees.length ? state.employees.map(row => `<tr><td><strong>${escapeHtml(row.name)}</strong></td><td>${rupiah(row.daily_salary)}</td><td><span class="pill ${row.active ? "" : "off"}">${row.active ? "Aktif" : "Nonaktif"}</span></td><td><div class="button-row"><button class="button edit small" data-action="edit-employee" data-id="${row.id}">Edit</button><button class="button ${row.active ? "variant" : "success"} small" data-action="toggle-employee" data-id="${row.id}" data-active="${!row.active}">${row.active ? "Nonaktifkan" : "Aktifkan"}</button><button class="button danger small" data-action="delete-employee" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="4" class="empty">Belum ada karyawan.</td></tr>';
+    const rules = state.rules.length ? state.rules.map(row => `<tr><td>${row.sort_order}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${row.rule_type === "fixed" ? "Nominal tetap" : "Persentase"}</td><td>${row.rule_type === "fixed" ? rupiah(row.value) : `${num(row.value)}%`}</td><td><span class="pill ${row.active ? "" : "off"}">${row.active ? "Aktif" : "Nonaktif"}</span></td><td><div class="button-row"><button class="button edit small" data-action="edit-rule" data-id="${row.id}">Edit</button><button class="button ${row.active ? "variant" : "success"} small" data-action="toggle-rule" data-id="${row.id}" data-active="${!row.active}">${row.active ? "Nonaktifkan" : "Aktifkan"}</button><button class="button danger small" data-action="delete-rule" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="6" class="empty">Belum ada aturan.</td></tr>';
     return `
       <div class="page-head"><div><h3>Kelola data</h3><p>Atur identitas toko, karyawan, dan pembagian laba.</p></div></div>
       <section class="grid two">
@@ -299,8 +305,22 @@
     const { action, id } = button.dataset;
     try {
       if (action === "save-item") await saveItem(id);
+      if (action === "add-product") await addProduct(id);
+      if (action === "edit-product") await editProduct(id);
+      if (action === "delete-product") await deleteProduct(id);
+      if (action === "delete-import") await deleteImport(id);
       if (action === "close-book") await closeBook();
+      if (action === "edit-salary") await editSalary(id);
+      if (action === "delete-salary") await deleteRecord("salaries", id, "Riwayat gaji");
+      if (action === "edit-withdrawal") await editWithdrawal(id);
+      if (action === "delete-withdrawal") await deleteRecord("salary_withdrawals", id, "Riwayat pengambilan gaji");
+      if (action === "edit-expense") await editExpense(id);
       if (action === "delete-expense") await deleteExpense(id);
+      if (action === "edit-employee") await editEmployee(id);
+      if (action === "delete-employee") await deleteRecord("employees", id, "Karyawan");
+      if (action === "edit-rule") await editRule(id);
+      if (action === "delete-rule") await deleteRecord("allocation_rules", id, "Aturan");
+      if (action === "delete-report") await deleteRecord("daily_reports", id, "Laporan tutup buku");
       if (action === "toggle-employee") await toggleRecord("employees", id, button.dataset.active === "true");
       if (action === "toggle-rule") await toggleRecord("allocation_rules", id, button.dataset.active === "true");
     } catch (error) { toast(error.message, "error"); }
@@ -379,6 +399,51 @@
     await loadData();
   }
 
+  function promptNumber(label, current) {
+    const value = prompt(label, String(num(current)));
+    return value === null ? null : num(value);
+  }
+
+  async function refreshImportTotals(importId) {
+    const rows = assertResult(await db.from("import_products").select("sales,profit,items,discount").eq("import_id", importId));
+    const productSales = sum(rows, "sales");
+    const grossProfit = sum(rows, "profit");
+    assertResult(await db.from("sales_imports").update({ product_sales: productSales, gross_profit: grossProfit, capital: productSales - grossProfit, items: sum(rows, "items"), discount: sum(rows, "discount") }).eq("id", importId));
+  }
+
+  async function addProduct(importId) {
+    const product = prompt("Nama produk baru:");
+    if (!product?.trim()) return;
+    const sales = promptNumber("Total penjualan produk:", 0); if (sales === null) return;
+    const items = promptNumber("Jumlah item:", 0); if (items === null) return;
+    const profit = promptNumber("Laba produk:", 0); if (profit === null) return;
+    assertResult(await db.from("import_products").insert({ import_id: importId, report_date: currentDate(), product: product.trim(), sales, transactions: 0, items, discount: 0, profit, capital: sales - profit }));
+    await refreshImportTotals(importId); toast("Produk ditambahkan."); await loadData();
+  }
+
+  async function editProduct(id) {
+    const row = state.products.find(item => item.id === id); if (!row) return;
+    const product = prompt("Nama produk:", row.product); if (product === null || !product.trim()) return;
+    const sales = promptNumber("Total penjualan:", row.sales); if (sales === null) return;
+    const items = promptNumber("Jumlah item:", row.items); if (items === null) return;
+    const profit = promptNumber("Laba:", row.profit); if (profit === null) return;
+    const discount = promptNumber("Diskon:", row.discount); if (discount === null) return;
+    assertResult(await db.from("import_products").update({ product: product.trim(), sales, items, profit, discount, capital: sales - profit }).eq("id", id));
+    await refreshImportTotals(row.import_id); toast("Produk diperbarui."); await loadData();
+  }
+
+  async function deleteProduct(id) {
+    const row = state.products.find(item => item.id === id); if (!row || !confirm(`Hapus produk ${row.product}?`)) return;
+    assertResult(await db.from("import_products").delete().eq("id", id));
+    await refreshImportTotals(row.import_id); toast("Produk dihapus."); await loadData();
+  }
+
+  async function deleteImport(id) {
+    if (!confirm("Hapus seluruh hasil import pada tanggal ini?")) return;
+    assertResult(await db.from("sales_imports").delete().eq("id", id));
+    toast("Data import dihapus."); await loadData();
+  }
+
   async function saveSalaries(event) {
     event.preventDefault();
     const rows = $$(".salary-line").map(element => {
@@ -407,6 +472,23 @@
     } catch (error) { toast(error.message, "error"); } finally { setLoading(false); }
   }
 
+  async function editSalary(id) {
+    const row = state.salaries.find(item => item.id === id); if (!row) return;
+    const base = promptNumber("Gaji pokok:", row.base_salary); if (base === null) return;
+    const bonus = promptNumber("Bonus:", row.bonus); if (bonus === null) return;
+    const notes = prompt("Catatan:", row.notes || ""); if (notes === null) return;
+    assertResult(await db.from("salaries").update({ base_salary: base, bonus, total: base + bonus, notes, updated_at: new Date().toISOString() }).eq("id", id));
+    toast("Riwayat gaji diperbarui."); await loadData();
+  }
+
+  async function editWithdrawal(id) {
+    const row = state.withdrawals.find(item => item.id === id); if (!row) return;
+    const amount = promptNumber("Nominal pengambilan:", row.amount); if (amount === null || amount <= 0) return;
+    const notes = prompt("Catatan:", row.notes || ""); if (notes === null) return;
+    assertResult(await db.from("salary_withdrawals").update({ amount, notes }).eq("id", id));
+    toast("Pengambilan gaji diperbarui."); await loadData();
+  }
+
   async function saveExpense(event) {
     event.preventDefault();
     const employeeId = $("#expenseEmployee").value;
@@ -424,6 +506,18 @@
     toast("Pengeluaran dihapus."); await loadData();
   }
 
+  async function editExpense(id) {
+    const row = state.expenses.find(item => item.id === id); if (!row) return;
+    const category = prompt("Kategori:", row.category); if (category === null || !category.trim()) return;
+    const amount = promptNumber("Nominal:", row.amount); if (amount === null || amount <= 0) return;
+    const description = prompt("Keterangan:", row.description || ""); if (description === null) return;
+    const employeeName = prompt("Nama karyawan terkait (kosongkan jika operasional):", row.employee_name || ""); if (employeeName === null) return;
+    const employee = employeeName.trim() ? state.employees.find(item => item.name.toLowerCase() === employeeName.trim().toLowerCase()) : null;
+    if (employeeName.trim() && !employee) throw new Error("Nama karyawan tidak ditemukan.");
+    assertResult(await db.from("expenses").update({ category: category.trim(), amount, description, expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null }).eq("id", id));
+    toast("Pengeluaran diperbarui."); await loadData();
+  }
+
   async function saveSettings(event) {
     event.preventDefault();
     setLoading(true);
@@ -438,11 +532,35 @@
     catch (error) { toast(error.message, "error"); } finally { setLoading(false); }
   }
 
+  async function editEmployee(id) {
+    const row = state.employees.find(item => item.id === id); if (!row) return;
+    const name = prompt("Nama karyawan:", row.name); if (name === null || !name.trim()) return;
+    const salary = promptNumber("Gaji harian bawaan:", row.daily_salary); if (salary === null) return;
+    assertResult(await db.from("employees").update({ name: name.trim(), daily_salary: salary }).eq("id", id));
+    toast("Data karyawan diperbarui."); await loadData();
+  }
+
   async function saveRule(event) {
     event.preventDefault();
     setLoading(true);
     try { assertResult(await db.from("allocation_rules").insert({ name: $("#ruleName").value.trim(), rule_type: $("#ruleType").value, value: num($("#ruleValue").value), sort_order: num($("#ruleOrder").value), active: true })); toast("Aturan ditambahkan."); await loadData(); }
     catch (error) { toast(error.message, "error"); } finally { setLoading(false); }
+  }
+
+  async function editRule(id) {
+    const row = state.rules.find(item => item.id === id); if (!row) return;
+    const name = prompt("Nama alokasi:", row.name); if (name === null || !name.trim()) return;
+    const type = prompt("Jenis: fixed atau percent", row.rule_type); if (type === null || !["fixed", "percent"].includes(type)) return toast("Jenis harus fixed atau percent.", "error");
+    const value = promptNumber("Nilai:", row.value); if (value === null) return;
+    const order = promptNumber("Urutan:", row.sort_order); if (order === null) return;
+    assertResult(await db.from("allocation_rules").update({ name: name.trim(), rule_type: type, value, sort_order: order }).eq("id", id));
+    toast("Aturan diperbarui."); await loadData();
+  }
+
+  async function deleteRecord(table, id, label) {
+    if (!confirm(`Hapus ${label.toLowerCase()} ini?`)) return;
+    assertResult(await db.from(table).delete().eq("id", id));
+    toast(`${label} dihapus.`); await loadData();
   }
 
   async function toggleRecord(table, id, active) {
@@ -476,6 +594,7 @@
   $("#logoutButton").addEventListener("click", async () => { await db.auth.signOut(); location.reload(); });
   $("#menuButton").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
   $$(".nav-item[data-page]").forEach(button => button.addEventListener("click", () => changePage(button.dataset.page)));
+  $(".header-brand").addEventListener("click", () => changePage("dashboard"));
   $("#activeDate").addEventListener("change", async event => {
     const date = event.target.value;
     if (!date) return;
