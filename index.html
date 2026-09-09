@@ -6,6 +6,7 @@
   <meta name="description" content="Sistem hasil penjualan harian UD Fikri">
   <title>UD Fikri — Hasil Penjualan</title>
   <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
@@ -23,21 +24,26 @@
   </section>
 
   <div id="appShell" class="app-shell hidden">
-    <aside id="sidebar" class="sidebar">
-      <div class="sidebar-brand"><div class="brand-mark small">UF</div><div><strong id="brandName">UD Fikri</strong><span>Hasil Penjualan</span></div></div>
-      <nav class="main-nav" aria-label="Menu utama">
+    <header class="public-header">
+      <div class="header-inner">
+        <button class="header-brand" data-page="dashboard">
+          <img src="assets/logo-ud-fikri.png" alt="Logo UD Fikri">
+          <span><strong id="brandName">UD Fikri</strong><small>HASIL PENJUALAN HARIAN</small></span>
+        </button>
+        <button id="menuButton" class="mobile-menu" aria-label="Buka menu"><i class="fa-solid fa-bars"></i></button>
+        <nav id="sidebar" class="public-nav" aria-label="Menu utama">
         <button class="nav-item active" data-page="dashboard">Dashboard</button>
         <button class="nav-item" data-page="sales">Import & Tutup Buku</button>
         <button class="nav-item" data-page="salary">Gaji Karyawan</button>
         <button class="nav-item" data-page="expenses">Pengeluaran</button>
         <button class="nav-item" data-page="master">Kelola Data</button>
-      </nav>
-      <button id="logoutButton" class="nav-item logout">Keluar</button>
-    </aside>
+          <button id="logoutButton" class="nav-item logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button>
+        </nav>
+      </div>
+    </header>
 
     <div class="workspace">
       <header class="topbar">
-        <button id="menuButton" class="icon-button" aria-label="Buka menu">☰</button>
         <div><p class="eyebrow">UD FIKRI</p><h2 id="pageTitle">Dashboard</h2></div>
         <label class="active-date">Tanggal aktif<input id="activeDate" type="date"></label>
       </header>
