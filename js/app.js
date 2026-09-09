@@ -50,9 +50,42 @@
     toast.timer = setTimeout(() => element.classList.remove("show"), 3200);
   }
   function setLoading(active) { $("#loading").classList.toggle("hidden", !active); }
+  function openFormModal(title, fields, submitLabel = "Simpan") {
+    return new Promise(resolve => {
+      const modal = $("#formModal");
+      $("#modalTitle").textContent = title;
+      $("#modalSubmit").textContent = submitLabel;
+      $("#modalFields").innerHTML = fields.map(field => {
+        const common = `name="${field.name}" ${field.required ? "required" : ""}`;
+        const value = escapeHtml(field.value ?? "");
+        const control = field.type === "select"
+          ? `<select ${common}>${field.options.map(option => `<option value="${escapeHtml(option.value)}" ${String(option.value) === String(field.value ?? "") ? "selected" : ""}>${escapeHtml(option.label)}</option>`).join("")}</select>`
+          : field.type === "textarea" ? `<textarea ${common} placeholder="${escapeHtml(field.placeholder || "")}">${value}</textarea>`
+          : `<input ${common} type="${field.type || "text"}" value="${value}" min="${field.min ?? ""}" step="${field.step ?? ""}" placeholder="${escapeHtml(field.placeholder || "")}">`;
+        return `<div class="field ${field.full ? "full" : ""}"><label>${escapeHtml(field.label)}</label>${control}</div>`;
+      }).join("");
+      document.body.classList.add("modal-open");
+      modal.classList.remove("hidden");
+      setTimeout(() => $("input,select,textarea", modal)?.focus(), 0);
+      modal._resolve = resolve;
+    });
+  }
+  function closeFormModal(result = null) {
+    const modal = $("#formModal");
+    modal.classList.add("hidden");
+    document.body.classList.remove("modal-open");
+    const resolve = modal._resolve;
+    modal._resolve = null;
+    if (resolve) resolve(result);
+  }
   function assertResult(result) { if (result.error) throw result.error; return result.data; }
   function currentDate() { return state.settings.active_date || localDate(); }
   function currentImport() { return state.imports.find(row => row.report_date === currentDate()) || null; }
+  function currentReport() { return state.reports.find(row => row.report_date === currentDate()) || null; }
+  function isLockedDate(date) { const report = state.reports.find(row => row.report_date === date); return Boolean(report && report.book_status !== "reopened"); }
+  function isDateLocked() { return isLockedDate(currentDate()); }
+  function ensureDateUnlocked(date) { if (isLockedDate(date)) throw new Error(`Tutup buku ${formatDate(date)} sudah dikunci. Buka kembali sebelum mengubah data.`); }
+  function ensureUnlocked() { ensureDateUnlocked(currentDate()); }
   function currentSalaries() { return state.salaries.filter(row => row.salary_date === currentDate()); }
   function currentExpenses() { return state.expenses.filter(row => row.expense_date === currentDate()); }
   function activeEmployees() { return state.employees.filter(row => row.active); }
@@ -68,6 +101,8 @@
 
   function calculation() {
     const imported = currentImport();
+    const report = currentReport();
+    const locked = isDateLocked();
     const salaries = currentSalaries();
     const expenses = currentExpenses();
     const rules = activeRules();
@@ -75,7 +110,9 @@
     const salary = sum(salaries, "total");
     const expense = sum(expenses, "amount");
     const fixed = rules.filter(row => row.rule_type === "fixed").reduce((total, row) => total + num(row.value), 0);
-    const profitToShare = Math.max(0, grossProfit - salary - expense - fixed);
+    const balanceBeforeShare = grossProfit - salary - expense - fixed;
+    const deficit = Math.max(0, -balanceBeforeShare);
+    const profitToShare = Math.max(0, balanceBeforeShare);
     const allocations = [
       ...salaries.map(row => ({ name: `Gaji ${row.employee_name}`, type: "salary", amount: num(row.total), value: num(row.total) })),
       ...expenses.map(row => ({ name: `${row.category}${row.employee_name ? ` — ${row.employee_name}` : ""}`, type: "expense", amount: num(row.amount), value: num(row.amount) })),
@@ -88,7 +125,7 @@
       productSales: num(imported?.product_sales), capital: num(imported?.capital), grossProfit,
       transactions: num(imported?.transactions), items: num(imported?.items), shipping: num(imported?.shipping),
       salary, expenses: expense, employeeExpenses: expenses.filter(row => row.expense_type === "employee").reduce((total, row) => total + num(row.amount), 0),
-      fixedAllocations: fixed, profitToShare, percentageAllocations, ownerResult,
+      fixedAllocations: fixed, profitToShare, deficit, percentageAllocations, ownerResult,
       unallocated: grossProfit - salary - expense - fixed - percentageAllocations, allocations
     };
   }
@@ -168,7 +205,7 @@
         ${metric("Penjualan produk", rupiah(summary.productSales))}${metric("Modal barang", rupiah(summary.capital))}
         ${metric("Laba kotor", rupiah(summary.grossProfit), "positive")}${metric("Gaji & bonus", rupiah(summary.salary), "negative")}
         ${metric("Semua pengeluaran", rupiah(summary.expenses), "negative")}${metric("Laba untuk dibagi", rupiah(summary.profitToShare), "positive")}
-        ${metric("Hasil pemilik", rupiah(summary.ownerResult), "positive")}${metric("Item terjual", summary.items.toLocaleString("id-ID"))}
+        ${metric("Hasil pemilik", rupiah(summary.ownerResult), "positive")}${metric("Item terjual", summary.items.toLocaleString("id-ID"))}${summary.deficit > 0 ? metric("Defisit hari ini", `− ${rupiah(summary.deficit)}`, "negative") : ""}
       </section>
       <section class="grid two">
         <article class="card"><h4>Alur perhitungan</h4>
@@ -194,9 +231,10 @@
     const expenseDeductions = currentExpenses().length ? currentExpenses().map(row => `<tr><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td><strong>${rupiah(row.amount)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-expense" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-expense" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="6" class="empty">Belum ada pengeluaran tanggal ini.</td></tr>';
     return `
       <div class="page-head"><div><h3>Import laporan Griyo Pos</h3><p>Pilih file Produk Terlaris untuk menghitung penjualan, laba, dan modal.</p></div></div>
+      <div class="book-status ${locked ? "locked" : "open"}"><span><strong>${locked ? "Tutup buku dikunci" : report ? "Tutup buku dibuka kembali" : "Belum ditutup"}</strong><small>${locked ? "Data penjualan, gaji, dan pengeluaran tidak dapat diubah." : "Data tanggal ini masih dapat ditambah atau diperbarui."}</small></span>${locked ? '<button class="button danger" data-action="reopen-book">Buka kembali</button>' : ""}</div>
       <section class="grid two">
         <form id="importForm" class="card"><h4>File penjualan</h4>
-          <div class="field"><label>File Excel</label><input id="griyoFile" type="file" accept=".xlsx,.xls" required></div>
+          <div class="field"><label>File Excel</label><input id="griyoFile" type="file" accept=".xlsx,.xls" required ${locked ? "disabled" : ""}></div>
           <div id="importInfo" class="notice info">Tanggal laporan mengikuti tanggal aktif: ${formatDate(currentDate())}.</div>
           <button id="importButton" class="button primary" type="submit" disabled>Import dan hitung</button>
         </form>
@@ -214,7 +252,7 @@
         <article class="card"><div class="section-title-row"><h4>Gaji & bonus yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-salary">Tambah</button><button class="button edit small" data-go="salary">Riwayat gaji</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${salaryDeductions}</tbody></table></div></article>
         <article class="card"><div class="section-title-row"><h4>Pengeluaran yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-expense">Tambah</button><button class="button edit small" data-go="expenses">Riwayat pengeluaran</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${expenseDeductions}</tbody></table></div></article>
       </section>
-      <section class="card section-gap"><h4>Finalisasi laporan</h4><div class="notice info"><strong>Total potongan ${rupiah(summary.salary + summary.expenses + summary.fixedAllocations)}</strong><br>Gaji & bonus ${rupiah(summary.salary)} + semua pengeluaran ${rupiah(summary.expenses)} + alokasi tetap ${rupiah(summary.fixedAllocations)}.</div><p class="muted">Data gaji tetap masuk Riwayat Gaji. Data pengeluaran tetap masuk Riwayat Pengeluaran.</p><button class="button success" data-action="close-book" ${imported ? "" : "disabled"}>Simpan / perbarui tutup buku harian</button></section>`;
+      <section class="card section-gap"><h4>Finalisasi laporan</h4><div class="notice ${summary.deficit > 0 ? "danger-note" : "info"}"><strong>${summary.deficit > 0 ? `Defisit ${rupiah(summary.deficit)}` : `Total potongan ${rupiah(summary.salary + summary.expenses + summary.fixedAllocations)}`}</strong><br>Gaji & bonus ${rupiah(summary.salary)} + semua pengeluaran ${rupiah(summary.expenses)} + alokasi tetap ${rupiah(summary.fixedAllocations)}.</div><p class="muted">Data gaji tetap masuk Riwayat Gaji. Data pengeluaran tetap masuk Riwayat Pengeluaran.</p><button class="button success" data-action="close-book" ${imported && !locked ? "" : "disabled"}>${report ? "Perbarui dan kunci kembali" : "Simpan dan kunci tutup buku"}</button></section>`;
   }
 
   function renderSalary() {
@@ -310,9 +348,10 @@
       if (action === "delete-product") await deleteProduct(id);
       if (action === "delete-import") await deleteImport(id);
       if (action === "close-book") await closeBook();
+      if (action === "reopen-book") await reopenBook();
       if (action === "add-salary") await addSalaryQuick();
       if (action === "edit-salary") await editSalary(id);
-      if (action === "delete-salary") await deleteRecord("salaries", id, "Riwayat gaji");
+      if (action === "delete-salary") await deleteSalary(id);
       if (action === "edit-withdrawal") await editWithdrawal(id);
       if (action === "delete-withdrawal") await deleteRecord("salary_withdrawals", id, "Riwayat pengambilan gaji");
       if (action === "add-expense") await addExpenseQuick();
@@ -357,8 +396,16 @@
         });
       });
       if (!products.length) throw new Error("Data produk tidak ditemukan.");
+      const fileDate = file.name.match(/\d{4}-\d{2}-\d{2}/)?.[0];
+      if (fileDate && fileDate !== currentDate()) throw new Error(`Tanggal file ${formatDate(fileDate)} berbeda dari tanggal aktif ${formatDate(currentDate())}.`);
+      const duplicateNames = products.map(row => row.product.trim().toLowerCase()).filter((name, index, all) => all.indexOf(name) !== index);
+      if (duplicateNames.length) throw new Error(`Produk duplikat ditemukan: ${[...new Set(duplicateNames)].join(", ")}.`);
+      const invalidProfit = products.find(row => row.profit > row.sales);
+      if (invalidProfit) throw new Error(`Laba ${invalidProfit.product} lebih besar daripada penjualannya.`);
       const productSales = sum(products, "sales");
       const grossProfit = sum(products, "profit");
+      const expectedTotal = productSales + shipping;
+      if (sourceTotalSales && Math.abs(sourceTotalSales - expectedTotal) > 1) throw new Error(`Total file tidak cocok. Ringkasan ${rupiah(sourceTotalSales)}, sedangkan produk + ongkos kirim ${rupiah(expectedTotal)}.`);
       state.parsedImport = { file, products, sourceTotalSales, productSales, grossProfit, capital: productSales - grossProfit, transactions, items: items || sum(products, "items"), shipping, discount: sum(products, "discount") };
       $("#importInfo").innerHTML = `<strong>${products.length} produk terbaca.</strong><br>Penjualan ${rupiah(productSales)} · Laba ${rupiah(grossProfit)} · Modal ${rupiah(productSales - grossProfit)}.`;
       $("#importButton").disabled = false;
@@ -367,6 +414,7 @@
 
   async function importReport(event) {
     event.preventDefault();
+    ensureUnlocked();
     if (!state.parsedImport) return;
     setLoading(true);
     try {
@@ -390,6 +438,7 @@
   }
 
   async function saveItem(id) {
+    ensureUnlocked();
     const input = $(`.item-input[data-id="${id}"]`);
     const value = num(input.value);
     if (value < 0) throw new Error("Jumlah item tidak valid.");
@@ -401,11 +450,6 @@
     await loadData();
   }
 
-  function promptNumber(label, current) {
-    const value = prompt(label, String(num(current)));
-    return value === null ? null : num(value);
-  }
-
   async function refreshImportTotals(importId) {
     const rows = assertResult(await db.from("import_products").select("sales,profit,items,discount").eq("import_id", importId));
     const productSales = sum(rows, "sales");
@@ -414,33 +458,47 @@
   }
 
   async function addProduct(importId) {
-    const product = prompt("Nama produk baru:");
-    if (!product?.trim()) return;
-    const sales = promptNumber("Total penjualan produk:", 0); if (sales === null) return;
-    const items = promptNumber("Jumlah item:", 0); if (items === null) return;
-    const profit = promptNumber("Laba produk:", 0); if (profit === null) return;
-    assertResult(await db.from("import_products").insert({ import_id: importId, report_date: currentDate(), product: product.trim(), sales, transactions: 0, items, discount: 0, profit, capital: sales - profit }));
+    ensureUnlocked();
+    const data = await openFormModal("Tambah produk manual", [
+      { name: "product", label: "Nama produk", required: true, full: true },
+      { name: "sales", label: "Penjualan", type: "number", min: 0, required: true },
+      { name: "items", label: "Jumlah item", type: "number", min: 0, step: .01, required: true },
+      { name: "profit", label: "Laba", type: "number", min: 0, required: true },
+      { name: "discount", label: "Diskon", type: "number", min: 0, value: 0, required: true }
+    ], "Tambah produk");
+    if (!data) return;
+    const sales = num(data.sales), profit = num(data.profit);
+    if (profit > sales) throw new Error("Laba tidak boleh lebih besar daripada penjualan.");
+    assertResult(await db.from("import_products").insert({ import_id: importId, report_date: currentDate(), product: data.product.trim(), sales, transactions: 0, items: num(data.items), discount: num(data.discount), profit, capital: sales - profit }));
     await refreshImportTotals(importId); toast("Produk ditambahkan."); await loadData();
   }
 
   async function editProduct(id) {
+    ensureUnlocked();
     const row = state.products.find(item => item.id === id); if (!row) return;
-    const product = prompt("Nama produk:", row.product); if (product === null || !product.trim()) return;
-    const sales = promptNumber("Total penjualan:", row.sales); if (sales === null) return;
-    const items = promptNumber("Jumlah item:", row.items); if (items === null) return;
-    const profit = promptNumber("Laba:", row.profit); if (profit === null) return;
-    const discount = promptNumber("Diskon:", row.discount); if (discount === null) return;
-    assertResult(await db.from("import_products").update({ product: product.trim(), sales, items, profit, discount, capital: sales - profit }).eq("id", id));
+    const data = await openFormModal("Edit produk", [
+      { name: "product", label: "Nama produk", value: row.product, required: true, full: true },
+      { name: "sales", label: "Penjualan", type: "number", min: 0, value: row.sales, required: true },
+      { name: "items", label: "Jumlah item", type: "number", min: 0, step: .01, value: row.items, required: true },
+      { name: "profit", label: "Laba", type: "number", min: 0, value: row.profit, required: true },
+      { name: "discount", label: "Diskon", type: "number", min: 0, value: row.discount, required: true }
+    ]);
+    if (!data) return;
+    const sales = num(data.sales), profit = num(data.profit);
+    if (profit > sales) throw new Error("Laba tidak boleh lebih besar daripada penjualan.");
+    assertResult(await db.from("import_products").update({ product: data.product.trim(), sales, items: num(data.items), profit, discount: num(data.discount), capital: sales - profit }).eq("id", id));
     await refreshImportTotals(row.import_id); toast("Produk diperbarui."); await loadData();
   }
 
   async function deleteProduct(id) {
+    ensureUnlocked();
     const row = state.products.find(item => item.id === id); if (!row || !confirm(`Hapus produk ${row.product}?`)) return;
     assertResult(await db.from("import_products").delete().eq("id", id));
     await refreshImportTotals(row.import_id); toast("Produk dihapus."); await loadData();
   }
 
   async function deleteImport(id) {
+    ensureUnlocked();
     if (!confirm("Hapus seluruh hasil import pada tanggal ini?")) return;
     assertResult(await db.from("sales_imports").delete().eq("id", id));
     toast("Data import dihapus."); await loadData();
@@ -448,6 +506,7 @@
 
   async function saveSalaries(event) {
     event.preventDefault();
+    ensureUnlocked();
     const rows = $$(".salary-line").map(element => {
       const employee = state.employees.find(row => row.id === element.dataset.employee);
       const present = $(".salary-present", element).checked;
@@ -475,39 +534,57 @@
   }
 
   async function addSalaryQuick() {
+    ensureUnlocked();
     const usedIds = new Set(currentSalaries().map(row => row.employee_id));
     const available = activeEmployees().filter(row => !usedIds.has(row.id));
     if (!available.length) return toast("Semua karyawan aktif sudah memiliki gaji pada tanggal ini.", "error");
-    const employeeName = prompt(`Nama karyawan:\n${available.map(row => row.name).join(", ")}`, available[0].name);
-    if (employeeName === null) return;
-    const employee = available.find(row => row.name.toLowerCase() === employeeName.trim().toLowerCase());
-    if (!employee) throw new Error("Nama karyawan tidak ditemukan atau sudah tercatat.");
-    const base = promptNumber("Gaji pokok:", employee.daily_salary); if (base === null) return;
-    const bonus = promptNumber("Bonus:", 0); if (bonus === null) return;
-    const notes = prompt("Catatan:", ""); if (notes === null) return;
-    assertResult(await db.from("salaries").insert({ salary_date: currentDate(), employee_id: employee.id, employee_name: employee.name, present: true, base_salary: base, bonus, total: base + bonus, notes, updated_at: new Date().toISOString() }));
+    const data = await openFormModal("Tambah gaji & bonus", [
+      { name: "employee_id", label: "Karyawan", type: "select", required: true, options: available.map(row => ({ value: row.id, label: row.name })) },
+      { name: "base_salary", label: "Gaji pokok", type: "number", min: 0, value: available[0].daily_salary, required: true },
+      { name: "bonus", label: "Bonus", type: "number", min: 0, value: 0, required: true },
+      { name: "notes", label: "Catatan", type: "textarea", full: true }
+    ], "Tambah gaji");
+    if (!data) return;
+    const employee = available.find(row => row.id === data.employee_id);
+    const base = num(data.base_salary), bonus = num(data.bonus);
+    assertResult(await db.from("salaries").insert({ salary_date: currentDate(), employee_id: employee.id, employee_name: employee.name, present: true, base_salary: base, bonus, total: base + bonus, notes: data.notes.trim(), updated_at: new Date().toISOString() }));
     toast("Gaji ditambahkan dan masuk ke riwayat gaji."); await loadData();
   }
 
   async function editSalary(id) {
     const row = state.salaries.find(item => item.id === id); if (!row) return;
-    const base = promptNumber("Gaji pokok:", row.base_salary); if (base === null) return;
-    const bonus = promptNumber("Bonus:", row.bonus); if (bonus === null) return;
-    const notes = prompt("Catatan:", row.notes || ""); if (notes === null) return;
-    assertResult(await db.from("salaries").update({ base_salary: base, bonus, total: base + bonus, notes, updated_at: new Date().toISOString() }).eq("id", id));
+    ensureDateUnlocked(row.salary_date);
+    const data = await openFormModal(`Edit gaji ${row.employee_name}`, [
+      { name: "base_salary", label: "Gaji pokok", type: "number", min: 0, value: row.base_salary, required: true },
+      { name: "bonus", label: "Bonus", type: "number", min: 0, value: row.bonus, required: true },
+      { name: "notes", label: "Catatan", type: "textarea", value: row.notes || "", full: true }
+    ]);
+    if (!data) return;
+    const base = num(data.base_salary), bonus = num(data.bonus);
+    assertResult(await db.from("salaries").update({ base_salary: base, bonus, total: base + bonus, notes: data.notes.trim(), updated_at: new Date().toISOString() }).eq("id", id));
     toast("Riwayat gaji diperbarui."); await loadData();
+  }
+
+  async function deleteSalary(id) {
+    const row = state.salaries.find(item => item.id === id); if (!row) return;
+    ensureDateUnlocked(row.salary_date);
+    await deleteRecord("salaries", id, "Riwayat gaji");
   }
 
   async function editWithdrawal(id) {
     const row = state.withdrawals.find(item => item.id === id); if (!row) return;
-    const amount = promptNumber("Nominal pengambilan:", row.amount); if (amount === null || amount <= 0) return;
-    const notes = prompt("Catatan:", row.notes || ""); if (notes === null) return;
-    assertResult(await db.from("salary_withdrawals").update({ amount, notes }).eq("id", id));
+    const data = await openFormModal(`Edit pengambilan ${row.employee_name}`, [
+      { name: "amount", label: "Nominal pengambilan", type: "number", min: 1, value: row.amount, required: true },
+      { name: "notes", label: "Catatan", type: "textarea", value: row.notes || "", full: true }
+    ]);
+    if (!data) return;
+    assertResult(await db.from("salary_withdrawals").update({ amount: num(data.amount), notes: data.notes.trim() }).eq("id", id));
     toast("Pengambilan gaji diperbarui."); await loadData();
   }
 
   async function saveExpense(event) {
     event.preventDefault();
+    ensureUnlocked();
     const employeeId = $("#expenseEmployee").value;
     const employee = state.employees.find(row => row.id === employeeId);
     setLoading(true);
@@ -518,18 +595,21 @@
   }
 
   async function addExpenseQuick() {
-    const category = prompt("Kategori pengeluaran:"); if (category === null || !category.trim()) return;
-    const amount = promptNumber("Nominal pengeluaran:", 0); if (amount === null || amount <= 0) return;
-    const description = prompt("Catatan:", ""); if (description === null) return;
-    const employeeName = prompt(`Nama karyawan terkait (opsional):\n${activeEmployees().map(row => row.name).join(", ")}`, "");
-    if (employeeName === null) return;
-    const employee = employeeName.trim() ? activeEmployees().find(row => row.name.toLowerCase() === employeeName.trim().toLowerCase()) : null;
-    if (employeeName.trim() && !employee) throw new Error("Nama karyawan tidak ditemukan.");
-    assertResult(await db.from("expenses").insert({ expense_date: currentDate(), expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null, category: category.trim(), description, amount }));
+    ensureUnlocked();
+    const data = await openFormModal("Tambah pengeluaran", [
+      { name: "category", label: "Kategori", required: true, placeholder: "Contoh: Makan, listrik, bensin" },
+      { name: "amount", label: "Nominal", type: "number", min: 1, required: true },
+      { name: "employee_id", label: "Karyawan terkait", type: "select", options: [{ value: "", label: "Bukan pengeluaran karyawan" }, ...activeEmployees().map(row => ({ value: row.id, label: row.name }))] },
+      { name: "description", label: "Catatan", type: "textarea", full: true }
+    ], "Tambah pengeluaran");
+    if (!data) return;
+    const employee = activeEmployees().find(row => row.id === data.employee_id);
+    assertResult(await db.from("expenses").insert({ expense_date: currentDate(), expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null, category: data.category.trim(), description: data.description.trim(), amount: num(data.amount) }));
     toast("Pengeluaran ditambahkan dan masuk ke riwayat pengeluaran."); await loadData();
   }
 
   async function deleteExpense(id) {
+    const row = state.expenses.find(item => item.id === id); if (row) ensureDateUnlocked(row.expense_date);
     if (!confirm("Hapus catatan pengeluaran ini?")) return;
     assertResult(await db.from("expenses").delete().eq("id", id));
     toast("Pengeluaran dihapus."); await loadData();
@@ -537,13 +617,16 @@
 
   async function editExpense(id) {
     const row = state.expenses.find(item => item.id === id); if (!row) return;
-    const category = prompt("Kategori:", row.category); if (category === null || !category.trim()) return;
-    const amount = promptNumber("Nominal:", row.amount); if (amount === null || amount <= 0) return;
-    const description = prompt("Keterangan:", row.description || ""); if (description === null) return;
-    const employeeName = prompt("Nama karyawan terkait (kosongkan jika operasional):", row.employee_name || ""); if (employeeName === null) return;
-    const employee = employeeName.trim() ? state.employees.find(item => item.name.toLowerCase() === employeeName.trim().toLowerCase()) : null;
-    if (employeeName.trim() && !employee) throw new Error("Nama karyawan tidak ditemukan.");
-    assertResult(await db.from("expenses").update({ category: category.trim(), amount, description, expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null }).eq("id", id));
+    ensureDateUnlocked(row.expense_date);
+    const data = await openFormModal("Edit pengeluaran", [
+      { name: "category", label: "Kategori", value: row.category, required: true },
+      { name: "amount", label: "Nominal", type: "number", min: 1, value: row.amount, required: true },
+      { name: "employee_id", label: "Karyawan terkait", type: "select", value: row.employee_id || "", options: [{ value: "", label: "Bukan pengeluaran karyawan" }, ...state.employees.map(item => ({ value: item.id, label: item.name }))] },
+      { name: "description", label: "Catatan", type: "textarea", value: row.description || "", full: true }
+    ]);
+    if (!data) return;
+    const employee = state.employees.find(item => item.id === data.employee_id);
+    assertResult(await db.from("expenses").update({ category: data.category.trim(), amount: num(data.amount), description: data.description.trim(), expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null }).eq("id", id));
     toast("Pengeluaran diperbarui."); await loadData();
   }
 
@@ -563,9 +646,12 @@
 
   async function editEmployee(id) {
     const row = state.employees.find(item => item.id === id); if (!row) return;
-    const name = prompt("Nama karyawan:", row.name); if (name === null || !name.trim()) return;
-    const salary = promptNumber("Gaji harian bawaan:", row.daily_salary); if (salary === null) return;
-    assertResult(await db.from("employees").update({ name: name.trim(), daily_salary: salary }).eq("id", id));
+    const data = await openFormModal("Edit karyawan", [
+      { name: "name", label: "Nama karyawan", value: row.name, required: true },
+      { name: "daily_salary", label: "Gaji harian bawaan", type: "number", min: 0, value: row.daily_salary, required: true }
+    ]);
+    if (!data) return;
+    assertResult(await db.from("employees").update({ name: data.name.trim(), daily_salary: num(data.daily_salary) }).eq("id", id));
     toast("Data karyawan diperbarui."); await loadData();
   }
 
@@ -578,11 +664,14 @@
 
   async function editRule(id) {
     const row = state.rules.find(item => item.id === id); if (!row) return;
-    const name = prompt("Nama alokasi:", row.name); if (name === null || !name.trim()) return;
-    const type = prompt("Jenis: fixed atau percent", row.rule_type); if (type === null || !["fixed", "percent"].includes(type)) return toast("Jenis harus fixed atau percent.", "error");
-    const value = promptNumber("Nilai:", row.value); if (value === null) return;
-    const order = promptNumber("Urutan:", row.sort_order); if (order === null) return;
-    assertResult(await db.from("allocation_rules").update({ name: name.trim(), rule_type: type, value, sort_order: order }).eq("id", id));
+    const data = await openFormModal("Edit aturan pembagian", [
+      { name: "name", label: "Nama alokasi", value: row.name, required: true, full: true },
+      { name: "rule_type", label: "Jenis", type: "select", value: row.rule_type, options: [{ value: "fixed", label: "Nominal tetap" }, { value: "percent", label: "Persentase" }] },
+      { name: "value", label: "Nilai", type: "number", min: 0, step: .01, value: row.value, required: true },
+      { name: "sort_order", label: "Urutan", type: "number", min: 1, value: row.sort_order, required: true }
+    ]);
+    if (!data) return;
+    assertResult(await db.from("allocation_rules").update({ name: data.name.trim(), rule_type: data.rule_type, value: num(data.value), sort_order: num(data.sort_order) }).eq("id", id));
     toast("Aturan diperbarui."); await loadData();
   }
 
@@ -598,6 +687,7 @@
   }
 
   async function closeBook() {
+    ensureUnlocked();
     const imported = currentImport();
     if (!imported) throw new Error("Import laporan Griyo Pos terlebih dahulu.");
     const summary = calculation();
@@ -607,9 +697,16 @@
       items: summary.items, shipping: summary.shipping, salary: summary.salary, expenses: summary.expenses,
       fixed_allocations: summary.fixedAllocations, profit_to_share: summary.profitToShare,
       percentage_allocations: summary.percentageAllocations, owner_result: summary.ownerResult,
-      allocation_json: summary.allocations, saved_at: new Date().toISOString()
+      allocation_json: summary.allocations, book_status: "closed", closed_at: new Date().toISOString(), reopened_at: null, saved_at: new Date().toISOString()
     }, { onConflict: "report_date" }));
     toast("Tutup buku harian tersimpan."); await loadData();
+  }
+
+  async function reopenBook() {
+    const report = currentReport();
+    if (!report || !confirm(`Buka kembali tutup buku ${formatDate(currentDate())}? Data pada tanggal ini akan dapat diedit.`)) return;
+    assertResult(await db.from("daily_reports").update({ book_status: "reopened", reopened_at: new Date().toISOString() }).eq("id", report.id));
+    toast("Tutup buku dibuka kembali."); await loadData();
   }
 
   $("#loginForm").addEventListener("submit", async event => {
@@ -633,6 +730,15 @@
     const { error } = await db.from("settings").update({ active_date: date, updated_at: new Date().toISOString() }).eq("id", 1);
     if (error) { state.settings.active_date = previous; renderPage(); toast(error.message, "error"); }
   });
+  $("#modalClose").addEventListener("click", () => closeFormModal());
+  $("[data-modal-cancel]").addEventListener("click", () => closeFormModal());
+  $("#formModal").addEventListener("click", event => { if (event.target === $("#formModal")) closeFormModal(); });
+  $("#modalForm").addEventListener("submit", event => {
+    event.preventDefault();
+    closeFormModal(Object.fromEntries(new FormData(event.currentTarget).entries()));
+  });
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && !$("#formModal").classList.contains("hidden")) closeFormModal(); });
+  window.addEventListener("unhandledrejection", event => { event.preventDefault(); toast(event.reason?.message || "Proses gagal dijalankan.", "error"); });
 
   initialize().catch(error => toast(error.message, "error"));
 })();
