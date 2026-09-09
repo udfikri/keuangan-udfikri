@@ -53,6 +53,13 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
   <div id="loading" class="loading hidden"><div class="spinner"></div><span>Memuat data…</span></div>
+  <div id="formModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <form id="modalForm" class="modal-card">
+      <div class="modal-head"><div><p class="eyebrow">UD FIKRI</p><h3 id="modalTitle">Form Data</h3></div><button id="modalClose" class="modal-close" type="button" aria-label="Tutup">×</button></div>
+      <div id="modalFields" class="form-grid"></div>
+      <div class="modal-actions"><button class="button ghost" type="button" data-modal-cancel>Batal</button><button id="modalSubmit" class="button primary" type="submit">Simpan</button></div>
+    </form>
+  </div>
 
   <script src="js/config.js"></script>
   <script src="js/supabase.js"></script>
