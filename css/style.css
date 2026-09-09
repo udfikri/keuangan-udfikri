@@ -89,6 +89,12 @@ textarea { min-height: 5rem; resize: vertical; }
 
 .notice { margin-bottom: 1rem; padding: .8rem .9rem; border-radius: .7rem; color: #775800; background: #fff6d8; font-size: .86rem; line-height: 1.55; }
 .notice.info { color: #205f59; background: var(--teal-soft); }
+.notice.danger-note { color: #9b3030; background: #fff0f0; }
+.book-status { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 1rem; padding: .9rem 1rem; border: 1px solid; border-radius: .8rem; }
+.book-status span, .book-status strong, .book-status small { display: block; }
+.book-status small { margin-top: .2rem; opacity: .78; }
+.book-status.locked { color: #8d3737; border-color: #f1cccc; background: #fff1f1; }
+.book-status.open { color: #27685c; border-color: #cce6df; background: #edf8f5; }
 .table-wrap { width: 100%; overflow: auto; border: 1px solid var(--line); border-radius: .85rem; background: #fff; }
 table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: .84rem; }
 th, td { padding: .75rem .8rem; border-bottom: 1px solid #eaf1f0; text-align: left; }
@@ -113,6 +119,13 @@ tr:last-child td { border-bottom: 0; }
 .toast.error { background: #a83b3b; }
 .form-message { min-height: 1.3rem; margin-top: .8rem; color: #ffd0d0; font-size: .85rem; }
 .loading { position: fixed; inset: 0; z-index: 80; display: grid; place-content: center; justify-items: center; gap: .8rem; color: #fff; background: rgba(13,40,41,.62); backdrop-filter: blur(3px); }
+.modal-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 1rem; background: rgba(13,40,41,.62); backdrop-filter: blur(4px); }
+.modal-card { width: min(36rem, 100%); max-height: calc(100vh - 2rem); overflow: auto; padding: 1.25rem; border-radius: 1rem; background: #fff; box-shadow: 0 25px 70px rgba(0,0,0,.25); }
+.modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.2rem; }
+.modal-head h3 { margin: .15rem 0 0; }
+.modal-close { width: 2.35rem; height: 2.35rem; border: 0; border-radius: .65rem; color: #cf4141; background: #fff0f0; font-size: 1.5rem; line-height: 1; }
+.modal-actions { display: flex; justify-content: flex-end; gap: .7rem; margin-top: 1.25rem; }
+body.modal-open { overflow: hidden; }
 .spinner { width: 2.2rem; height: 2.2rem; border: 3px solid rgba(255,255,255,.25); border-top-color: #fff; border-radius: 50%; animation: spin .75s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
