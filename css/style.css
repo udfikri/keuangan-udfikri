@@ -104,8 +104,6 @@ tr:last-child td { border-bottom: 0; }
 .empty { padding: 2rem; color: var(--muted); text-align: center; }
 .split-row { display: flex; justify-content: space-between; gap: 1rem; padding: .65rem 0; border-bottom: 1px solid #edf2f1; }
 .split-row:last-child { border-bottom: 0; }
-.history-allocation { display: flex; justify-content: space-between; gap: 16px; min-width: 220px; padding: 3px 0; }
-.history-allocation + .history-allocation { border-top: 1px dashed var(--border); }
 .muted { color: var(--muted); }
 .section-gap { margin-top: 1.3rem; }
 .search-row { display: grid; grid-template-columns: 1fr 13rem; gap: .8rem; margin-bottom: .8rem; }
