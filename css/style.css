@@ -104,6 +104,11 @@ tr:last-child td { border-bottom: 0; }
 .empty { padding: 2rem; color: var(--muted); text-align: center; }
 .split-row { display: flex; justify-content: space-between; gap: 1rem; padding: .65rem 0; border-bottom: 1px solid #edf2f1; }
 .split-row:last-child { border-bottom: 0; }
+.detail-card { display: flex; flex-direction: column; min-height: 260px; }
+.detail-card h4 { margin-bottom: .5rem; }
+.detail-card .split-row small { color: var(--muted); font-weight: 500; }
+.detail-total { display: flex; justify-content: space-between; gap: 1rem; margin-top: auto; padding-top: .9rem; border-top: 2px solid var(--border); }
+.detail-total strong { white-space: nowrap; }
 .muted { color: var(--muted); }
 .section-gap { margin-top: 1.3rem; }
 .search-row { display: grid; grid-template-columns: 1fr 13rem; gap: .8rem; margin-bottom: .8rem; }
