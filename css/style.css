@@ -94,6 +94,7 @@ table { width: 100%; border-collapse: collapse; white-space: nowrap; font-size: 
 th, td { padding: .75rem .8rem; border-bottom: 1px solid #eaf1f0; text-align: left; }
 th { color: #437472; background: #edf7f5; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
 tr:last-child td { border-bottom: 0; }
+.capital-cell, .capital-cell strong { font-weight: 900; color: #173f44; }
 .empty { padding: 2rem; color: var(--muted); text-align: center; }
 .split-row { display: flex; justify-content: space-between; gap: 1rem; padding: .65rem 0; border-bottom: 1px solid #edf2f1; }
 .split-row:last-child { border-bottom: 0; }
