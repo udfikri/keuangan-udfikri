@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Sistem hasil penjualan harian UD Fikri">
+  <title>UD Fikri — Hasil Penjualan</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <section id="loginScreen" class="login-screen">
+    <form id="loginForm" class="login-card">
+      <div class="logo-panel"><img src="assets/logo-ud-fikri.png" alt="Logo UD Fikri"></div>
+      <h1>UD FIKRI</h1>
+      <p>Sistem hasil penjualan harian</p>
+      <label>Email<input id="loginEmail" type="email" autocomplete="email" required placeholder="admin@udfikri.com"></label>
+      <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="••••••••"></label>
+      <button class="button primary full" type="submit">Masuk</button>
+      <div id="loginMessage" class="form-message" role="alert"></div>
+    </form>
+  </section>
+
+  <div id="appShell" class="app-shell hidden">
+    <aside id="sidebar" class="sidebar">
+      <div class="sidebar-brand"><div class="brand-mark small">UF</div><div><strong id="brandName">UD Fikri</strong><span>Hasil Penjualan</span></div></div>
+      <nav class="main-nav" aria-label="Menu utama">
+        <button class="nav-item active" data-page="dashboard">Dashboard</button>
+        <button class="nav-item" data-page="sales">Import & Tutup Buku</button>
+        <button class="nav-item" data-page="salary">Gaji Karyawan</button>
+        <button class="nav-item" data-page="expenses">Pengeluaran</button>
+        <button class="nav-item" data-page="master">Kelola Data</button>
+      </nav>
+      <button id="logoutButton" class="nav-item logout">Keluar</button>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <button id="menuButton" class="icon-button" aria-label="Buka menu">☰</button>
+        <div><p class="eyebrow">UD FIKRI</p><h2 id="pageTitle">Dashboard</h2></div>
+        <label class="active-date">Tanggal aktif<input id="activeDate" type="date"></label>
+      </header>
+      <main id="mainContent" class="content" tabindex="-1"></main>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <div id="loading" class="loading hidden"><div class="spinner"></div><span>Memuat data…</span></div>
+
+  <script src="js/config.js"></script>
+  <script src="js/supabase.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
