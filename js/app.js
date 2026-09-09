@@ -214,22 +214,15 @@
     return `<article class="card metric"><div class="metric-label">${label}</div><div class="metric-value ${tone}">${value}</div></article>`;
   }
 
-  function reportAllocation(row) {
-    const items = Array.isArray(row.allocation_json) ? row.allocation_json : [];
-    const rules = items.filter(item => ["fixed", "percent"].includes(item.type));
-    return rules.length
-      ? rules.map(item => `<div class="history-allocation"><span>${escapeHtml(item.name)}${item.type === "percent" ? ` (${num(item.value)}%)` : ""}</span><strong>${rupiah(item.amount)}</strong></div>`).join("")
-      : '<span class="muted">Belum tersimpan</span>';
-  }
-
   function renderDashboard() {
     const summary = calculation();
-    const allocationRows = summary.allocations.length
-      ? summary.allocations.map(row => `<div class="split-row"><span>${escapeHtml(row.name)}${row.type === "percent" ? ` (${row.value}%)` : ""}</span><strong>${rupiah(row.amount)}</strong></div>`).join("")
-      : '<div class="empty">Belum ada pembagian untuk tanggal ini.</div>';
+    const allocationCards = summary.allocations
+      .filter(row => ["fixed", "percent"].includes(row.type))
+      .map(row => metric(`${row.name}${row.type === "percent" ? ` (${num(row.value)}%)` : ""}`, rupiah(row.amount), row.target === "owner" ? "positive" : ""))
+      .join("");
     const history = state.reports.length
-      ? state.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.profit_to_share)}</td><td>${reportAllocation(row)}</td><td><strong>${rupiah(row.owner_result)}</strong></td><td><button class="button danger small" data-action="delete-report" data-id="${row.id}">Hapus</button></td></tr>`).join("")
-      : '<tr><td colspan="10" class="empty">Belum ada riwayat tutup buku.</td></tr>';
+      ? state.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.profit_to_share)}</td><td><strong>${rupiah(row.owner_result)}</strong></td><td><button class="button danger small" data-action="delete-report" data-id="${row.id}">Hapus</button></td></tr>`).join("")
+      : '<tr><td colspan="9" class="empty">Belum ada riwayat tutup buku.</td></tr>';
     return `
       <div class="page-head"><div><h3>Ringkasan ${formatDate(currentDate())}</h3><p>Posisi penjualan dan pembagian laba tanggal aktif.</p></div><button class="button primary" data-go="sales">Import penjualan</button></div>
       <section class="grid metric-grid">
@@ -238,7 +231,8 @@
         ${metric("Semua pengeluaran", rupiah(summary.expenses), "negative")}${metric("Sisa laba untuk alokasi", rupiah(summary.profitToShare), "positive")}
         ${metric("Hasil pemilik", rupiah(summary.ownerResult), "positive")}${metric("Item terjual", summary.items.toLocaleString("id-ID"))}${summary.deficit > 0 ? metric("Defisit hari ini", `− ${rupiah(summary.deficit)}`, "negative") : ""}
       </section>
-      <section class="grid two">
+      <section class="section-gap"><div class="section-title-row"><h4>Rincian alokasi</h4></div><div class="grid metric-grid">${allocationCards || '<article class="card empty">Belum ada aturan alokasi aktif.</article>'}</div></section>
+      <section class="section-gap">
         <article class="card"><h4>Alur perhitungan</h4>
           <div class="split-row"><span>Laba kotor</span><strong>${rupiah(summary.grossProfit)}</strong></div>
           <div class="split-row"><span>Gaji dan bonus</span><strong class="negative">− ${rupiah(summary.salary)}</strong></div>
@@ -246,9 +240,8 @@
           <div class="split-row"><span>Alokasi nominal tetap</span><strong class="negative">− ${rupiah(summary.fixedAllocations)}</strong></div>
           <div class="split-row"><span>Sisa laba untuk alokasi</span><strong class="positive">${rupiah(summary.profitToShare)}</strong></div>
         </article>
-        <article class="card"><h4>Pembagian hari ini</h4>${allocationRows}</article>
       </section>
-      <section class="card section-gap"><h4>Riwayat tutup buku</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Dasar alokasi</th><th>Rincian alokasi</th><th>Pemilik</th><th>Aksi</th></tr></thead><tbody>${history}</tbody></table></div></section>`;
+      <section class="card section-gap"><h4>Riwayat tutup buku</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Dasar alokasi</th><th>Pemilik</th><th>Aksi</th></tr></thead><tbody>${history}</tbody></table></div></section>`;
   }
 
   function renderSales() {
