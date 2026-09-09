@@ -188,10 +188,10 @@
     const products = state.products.filter(row => row.report_date === currentDate());
     const summary = calculation();
     const productRows = products.length
-      ? products.map(row => `<tr><td>${escapeHtml(row.product)}</td><td>${rupiah(row.sales)}</td><td><input class="item-input" data-id="${row.id}" type="number" step="0.01" min="0" value="${num(row.items)}"></td><td>${rupiah(row.profit)}</td><td>${rupiah(row.capital)}</td><td><div class="button-row"><button class="button edit small" data-action="edit-product" data-id="${row.id}">Edit</button><button class="button secondary small" data-action="save-item" data-id="${row.id}">Simpan item</button><button class="button danger small" data-action="delete-product" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
+      ? products.map(row => `<tr><td>${escapeHtml(row.product)}</td><td>${rupiah(row.sales)}</td><td><input class="item-input" data-id="${row.id}" type="number" step="0.01" min="0" value="${num(row.items)}"></td><td>${rupiah(row.profit)}</td><td class="capital-cell"><strong>${rupiah(row.capital)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-product" data-id="${row.id}">Edit</button><button class="button secondary small" data-action="save-item" data-id="${row.id}">Simpan item</button><button class="button danger small" data-action="delete-product" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
       : '<tr><td colspan="6" class="empty">Belum ada produk pada tanggal ini.</td></tr>';
-    const salaryDeductions = currentSalaries().length ? currentSalaries().map(row => `<tr><td>Gaji</td><td>${escapeHtml(row.employee_name)}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(row.bonus)}</td><td>${rupiah(row.total)}</td></tr>`).join("") : '<tr><td colspan="5" class="empty">Belum ada gaji tanggal ini.</td></tr>';
-    const expenseDeductions = currentExpenses().length ? currentExpenses().map(row => `<tr><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td></tr>`).join("") : '<tr><td colspan="5" class="empty">Belum ada pengeluaran tanggal ini.</td></tr>';
+    const salaryDeductions = currentSalaries().length ? currentSalaries().map(row => `<tr><td>Gaji</td><td>${escapeHtml(row.employee_name)}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(row.bonus)}</td><td><strong>${rupiah(row.total)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-salary" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-salary" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="6" class="empty">Belum ada gaji tanggal ini.</td></tr>';
+    const expenseDeductions = currentExpenses().length ? currentExpenses().map(row => `<tr><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td><strong>${rupiah(row.amount)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-expense" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-expense" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="6" class="empty">Belum ada pengeluaran tanggal ini.</td></tr>';
     return `
       <div class="page-head"><div><h3>Import laporan Griyo Pos</h3><p>Pilih file Produk Terlaris untuk menghitung penjualan, laba, dan modal.</p></div></div>
       <section class="grid two">
@@ -211,8 +211,8 @@
       </section>
       <section class="card section-gap"><div class="section-title-row"><h4>Produk terjual</h4><div class="button-row">${imported ? `<button class="button primary small" data-action="add-product" data-id="${imported.id}">Tambah manual</button><button class="button danger small" data-action="delete-import" data-id="${imported.id}">Hapus seluruh import</button>` : ""}</div></div><div class="table-wrap"><table><thead><tr><th>Produk</th><th>Penjualan</th><th>Item</th><th>Laba</th><th>Modal</th><th>Aksi</th></tr></thead><tbody>${productRows}</tbody></table></div></section>
       <section class="grid two section-gap">
-        <article class="card"><div class="section-title-row"><h4>Gaji & bonus yang dipotong</h4><button class="button edit small" data-go="salary">Kelola gaji</button></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th></tr></thead><tbody>${salaryDeductions}</tbody></table></div></article>
-        <article class="card"><div class="section-title-row"><h4>Pengeluaran yang dipotong</h4><button class="button edit small" data-go="expenses">Kelola pengeluaran</button></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th></tr></thead><tbody>${expenseDeductions}</tbody></table></div></article>
+        <article class="card"><div class="section-title-row"><h4>Gaji & bonus yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-salary">Tambah</button><button class="button edit small" data-go="salary">Riwayat gaji</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${salaryDeductions}</tbody></table></div></article>
+        <article class="card"><div class="section-title-row"><h4>Pengeluaran yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-expense">Tambah</button><button class="button edit small" data-go="expenses">Riwayat pengeluaran</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${expenseDeductions}</tbody></table></div></article>
       </section>
       <section class="card section-gap"><h4>Finalisasi laporan</h4><div class="notice info"><strong>Total potongan ${rupiah(summary.salary + summary.expenses + summary.fixedAllocations)}</strong><br>Gaji & bonus ${rupiah(summary.salary)} + semua pengeluaran ${rupiah(summary.expenses)} + alokasi tetap ${rupiah(summary.fixedAllocations)}.</div><p class="muted">Data gaji tetap masuk Riwayat Gaji. Data pengeluaran tetap masuk Riwayat Pengeluaran.</p><button class="button success" data-action="close-book" ${imported ? "" : "disabled"}>Simpan / perbarui tutup buku harian</button></section>`;
   }
@@ -310,10 +310,12 @@
       if (action === "delete-product") await deleteProduct(id);
       if (action === "delete-import") await deleteImport(id);
       if (action === "close-book") await closeBook();
+      if (action === "add-salary") await addSalaryQuick();
       if (action === "edit-salary") await editSalary(id);
       if (action === "delete-salary") await deleteRecord("salaries", id, "Riwayat gaji");
       if (action === "edit-withdrawal") await editWithdrawal(id);
       if (action === "delete-withdrawal") await deleteRecord("salary_withdrawals", id, "Riwayat pengambilan gaji");
+      if (action === "add-expense") await addExpenseQuick();
       if (action === "edit-expense") await editExpense(id);
       if (action === "delete-expense") await deleteExpense(id);
       if (action === "edit-employee") await editEmployee(id);
@@ -472,6 +474,21 @@
     } catch (error) { toast(error.message, "error"); } finally { setLoading(false); }
   }
 
+  async function addSalaryQuick() {
+    const usedIds = new Set(currentSalaries().map(row => row.employee_id));
+    const available = activeEmployees().filter(row => !usedIds.has(row.id));
+    if (!available.length) return toast("Semua karyawan aktif sudah memiliki gaji pada tanggal ini.", "error");
+    const employeeName = prompt(`Nama karyawan:\n${available.map(row => row.name).join(", ")}`, available[0].name);
+    if (employeeName === null) return;
+    const employee = available.find(row => row.name.toLowerCase() === employeeName.trim().toLowerCase());
+    if (!employee) throw new Error("Nama karyawan tidak ditemukan atau sudah tercatat.");
+    const base = promptNumber("Gaji pokok:", employee.daily_salary); if (base === null) return;
+    const bonus = promptNumber("Bonus:", 0); if (bonus === null) return;
+    const notes = prompt("Catatan:", ""); if (notes === null) return;
+    assertResult(await db.from("salaries").insert({ salary_date: currentDate(), employee_id: employee.id, employee_name: employee.name, present: true, base_salary: base, bonus, total: base + bonus, notes, updated_at: new Date().toISOString() }));
+    toast("Gaji ditambahkan dan masuk ke riwayat gaji."); await loadData();
+  }
+
   async function editSalary(id) {
     const row = state.salaries.find(item => item.id === id); if (!row) return;
     const base = promptNumber("Gaji pokok:", row.base_salary); if (base === null) return;
@@ -498,6 +515,18 @@
       assertResult(await db.from("expenses").insert({ expense_date: currentDate(), expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null, category: $("#expenseCategory").value.trim(), description: $("#expenseDescription").value.trim(), amount: num($("#expenseAmount").value) }));
       toast("Pengeluaran tersimpan."); await loadData();
     } catch (error) { toast(error.message, "error"); } finally { setLoading(false); }
+  }
+
+  async function addExpenseQuick() {
+    const category = prompt("Kategori pengeluaran:"); if (category === null || !category.trim()) return;
+    const amount = promptNumber("Nominal pengeluaran:", 0); if (amount === null || amount <= 0) return;
+    const description = prompt("Catatan:", ""); if (description === null) return;
+    const employeeName = prompt(`Nama karyawan terkait (opsional):\n${activeEmployees().map(row => row.name).join(", ")}`, "");
+    if (employeeName === null) return;
+    const employee = employeeName.trim() ? activeEmployees().find(row => row.name.toLowerCase() === employeeName.trim().toLowerCase()) : null;
+    if (employeeName.trim() && !employee) throw new Error("Nama karyawan tidak ditemukan.");
+    assertResult(await db.from("expenses").insert({ expense_date: currentDate(), expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null, category: category.trim(), description, amount }));
+    toast("Pengeluaran ditambahkan dan masuk ke riwayat pengeluaran."); await loadData();
   }
 
   async function deleteExpense(id) {
