@@ -101,8 +101,6 @@
 
   function calculation() {
     const imported = currentImport();
-    const report = currentReport();
-    const locked = isDateLocked();
     const salaries = currentSalaries();
     const expenses = currentExpenses();
     const rules = activeRules();
@@ -222,6 +220,8 @@
 
   function renderSales() {
     const imported = currentImport();
+    const report = currentReport();
+    const locked = isDateLocked();
     const products = state.products.filter(row => row.report_date === currentDate());
     const summary = calculation();
     const productRows = products.length
