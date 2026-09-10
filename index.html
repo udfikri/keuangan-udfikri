@@ -4,9 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Sistem hasil penjualan harian UD Fikri">
+  <meta name="theme-color" content="#153f40">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="UD Fikri">
   <title>UD Fikri — Hasil Penjualan</title>
   <link rel="icon" type="image/png" href="assets/logo-ud-fikri.png">
-  <link rel="stylesheet" href="css/style.css?v=19">
+  <link rel="apple-touch-icon" href="assets/pwa-icon-180.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/style.css?v=20">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -20,6 +27,7 @@
       <label>Email<input id="loginEmail" type="email" autocomplete="email" required placeholder="admin@udfikri.com"></label>
       <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="••••••••"></label>
       <button class="button primary full" type="submit">Masuk</button>
+      <button id="installButton" class="button install-button full hidden" type="button"><i class="fa-solid fa-download"></i> Pasang aplikasi UD Fikri</button>
       <div id="loginMessage" class="form-message" role="alert"></div>
     </form>
   </section>
@@ -55,6 +63,10 @@
   </div>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <aside id="updateBanner" class="update-banner hidden" role="status" aria-live="polite">
+    <div><strong>Versi baru tersedia</strong><span>Perbarui aplikasi untuk memakai fitur terbaru.</span></div>
+    <button id="updateButton" class="button primary" type="button">Perbarui</button>
+  </aside>
   <div id="loading" class="loading hidden"><div class="spinner"></div><span>Memuat data…</span></div>
   <div id="formModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <form id="modalForm" class="modal-card">
@@ -70,8 +82,8 @@
     </div>
   </div>
 
-  <script src="js/config.js?v=19"></script>
-  <script src="js/supabase.js?v=19"></script>
-  <script src="js/app.js?v=19"></script>
+  <script src="js/config.js?v=20"></script>
+  <script src="js/supabase.js?v=20"></script>
+  <script src="js/app.js?v=20"></script>
 </body>
 </html>
