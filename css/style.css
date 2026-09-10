@@ -103,9 +103,6 @@ th, td { padding: .75rem .8rem; border-bottom: 1px solid #eaf1f0; text-align: le
 th { color: #437472; background: #edf7f5; font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; }
 tr:last-child td { border-bottom: 0; }
 .capital-cell, .capital-cell strong { font-weight: 900; color: #173f44; }
-.products-table .item-column { width: 5.5rem; min-width: 5.5rem; padding-inline: .45rem; }
-.products-table .item-input { width: 4.6rem; min-width: 4.6rem; max-width: 4.6rem; padding-inline: .45rem; }
-.products-table .unit-capital-input { width: 7.5rem; min-width: 7.5rem; max-width: 7.5rem; }
 .empty { padding: 2rem; color: var(--muted); text-align: center; }
 .split-row { display: flex; justify-content: space-between; gap: 1rem; padding: .65rem 0; border-bottom: 1px solid #edf2f1; }
 .split-row:last-child { border-bottom: 0; }
@@ -244,6 +241,9 @@ th, td { vertical-align: middle; }
   .topbar { top: 4.6rem; }
   .content, .topbar { padding-inline: clamp(1rem, 2.3vw, 1.5rem); }
   .section-title-row { flex-wrap: wrap; }
+  .products-table .item-column { width: 5.5rem; min-width: 5.5rem; padding-inline: .45rem; }
+  .products-table .item-input { width: 4.6rem; min-width: 4.6rem; max-width: 4.6rem; padding-inline: .45rem; }
+  .products-table .unit-capital-input { width: 7.5rem; min-width: 7.5rem; max-width: 7.5rem; }
 }
 
 /* Tablet landscape */
