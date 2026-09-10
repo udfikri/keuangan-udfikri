@@ -126,6 +126,15 @@ tr:last-child td { border-bottom: 0; }
 .pill { display: inline-block; padding: .25rem .55rem; border-radius: 99px; color: #27695d; background: var(--teal-soft); font-size: .72rem; font-weight: 800; }
 .pill.off { color: #7a5a00; background: #fff4d2; }
 
+.employee-page-head { align-items: center; }
+.employee-greeting { margin: 0 0 .25rem !important; color: #cdeee8 !important; font-size: .78rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
+.employee-head-actions { display: flex; align-items: flex-end; gap: .7rem; }
+.employee-head-actions .field { min-width: 10rem; }
+.employee-head-actions .field span { color: rgba(255,255,255,.8); font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+.employee-head-actions input { background: #fff; }
+.employee-section-copy { margin: .25rem 0 0; font-size: .82rem; }
+.employee-summary-grid .card { min-height: 13rem; }
+
 .toast { position: fixed; right: 1.2rem; bottom: 1.2rem; z-index: 60; max-width: min(24rem, calc(100% - 2rem)); padding: .9rem 1rem; border-radius: .75rem; color: #fff; background: #214b48; box-shadow: 0 15px 45px rgba(0,0,0,.2); transform: translateY(6rem); opacity: 0; transition: .25s; }
 .toast.show { transform: translateY(0); opacity: 1; }
 .toast.error { background: #a83b3b; }
@@ -133,6 +142,14 @@ tr:last-child td { border-bottom: 0; }
 .loading { position: fixed; inset: 0; z-index: 80; display: grid; place-content: center; justify-items: center; gap: .8rem; color: #fff; background: rgba(13,40,41,.62); backdrop-filter: blur(3px); }
 .modal-backdrop { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 1rem; background: rgba(13,40,41,.62); backdrop-filter: blur(4px); }
 .modal-card { width: min(36rem, 100%); max-height: calc(100vh - 2rem); overflow: auto; padding: 1.25rem; border-radius: 1rem; background: #fff; box-shadow: 0 25px 70px rgba(0,0,0,.25); }
+.detail-modal-card { width: min(76rem, 100%); }
+.detail-actions { display: flex; justify-content: flex-end; margin-bottom: 1rem; }
+.detail-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin-bottom: 1rem; }
+.detail-summary > div { min-width: 0; padding: .85rem; border-radius: .7rem; background: var(--teal-soft); }
+.detail-summary span, .detail-summary strong, .detail-meta span { display: block; }
+.detail-summary span { color: var(--muted); font-size: .75rem; font-weight: 800; text-transform: uppercase; }
+.detail-summary strong { margin-top: .35rem; font-size: 1.05rem; overflow-wrap: anywhere; }
+.detail-meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .45rem 1rem; margin-bottom: 1rem; padding: .85rem; border: 1px solid var(--line); border-radius: .7rem; font-size: .82rem; }
 .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.2rem; }
 .modal-head h3 { margin: .15rem 0 0; }
 .modal-close { width: 2.35rem; height: 2.35rem; border: 0; border-radius: .65rem; color: #cf4141; background: #fff0f0; font-size: 1.5rem; line-height: 1; }
@@ -310,6 +327,8 @@ th, td { vertical-align: middle; }
   th, td { padding: .62rem; }
   input, select, textarea { min-height: 2.55rem; }
   .modal-card { width: 100%; padding: 1rem; }
+  .detail-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .detail-meta { grid-template-columns: 1fr; }
   .bar-chart { min-height: 170px; }
   .products-table .item-column { width: 4.8rem; min-width: 4.8rem; padding-inline: .35rem; }
   .products-table .item-input { width: 4.1rem; min-width: 4.1rem; max-width: 4.1rem; padding-inline: .35rem; }
@@ -348,6 +367,9 @@ th, td { vertical-align: middle; }
 @media (max-width: 900px) {
   .dashboard-detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
   .dashboard-detail-grid .detail-card { min-height: auto; }
+  .employee-page-head { align-items: flex-start; }
+  .employee-head-actions { width: 100%; }
+  .employee-head-actions .field { flex: 1 1 auto; }
 }
 
 @media (max-width: 600px) {
@@ -360,6 +382,11 @@ th, td { vertical-align: middle; }
   .dashboard-detail-grid .detail-total { gap: .3rem; padding-top: .55rem; font-size: .8rem; line-height: 1.25; }
   .dashboard-detail-grid .detail-total span { overflow-wrap: anywhere; }
   .dashboard-detail-grid .detail-total strong { font-size: .8rem; }
+  .employee-head-actions { display: grid; grid-template-columns: 1fr 1fr; }
+  .employee-head-actions .button { width: 100%; }
+  .employee-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .employee-summary-grid { grid-template-columns: 1fr; }
+  .employee-summary-grid .card { min-height: auto; }
 }
 
 @media (max-width: 380px) {
