@@ -324,3 +324,19 @@ th, td { vertical-align: middle; }
   .salary-line > strong { grid-column: auto; }
   .button-row .button { flex: 1 1 100%; }
 }
+
+/* Form gaji: satu karyawan selalu satu baris, layar kecil menggulir di dalam card */
+.salary-entry-scroll { width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; }
+.salary-entry-scroll .salary-line {
+  min-width: 760px;
+  grid-template-columns: minmax(7rem, 1.1fr) 5.2rem minmax(7rem, .9fr) minmax(6rem, .8fr) minmax(7rem, .9fr) minmax(9rem, 1.25fr);
+  gap: .6rem;
+}
+.salary-entry-scroll .salary-line > strong { grid-column: auto; }
+.salary-header { padding-block: .45rem; color: var(--muted); font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .035em; background: var(--teal-soft); border-radius: .55rem; }
+.salary-header span { padding-inline: .2rem; }
+.salary-entry-scroll .check-row { white-space: nowrap; }
+
+@media (max-width: 600px) {
+  .salary-entry-scroll .salary-line { min-width: 700px; grid-template-columns: 7rem 4.8rem 6.7rem 5.8rem 6.8rem 8.5rem; }
+}
