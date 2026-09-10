@@ -242,13 +242,11 @@
         ${metric("Semua pengeluaran", rupiah(summary.expenses), "negative")}${metric("Sisa laba untuk alokasi", rupiah(summary.profitToShare), "positive")}
         ${metric("Hasil pemilik", rupiah(summary.ownerResult), "positive")}${metric("Item terjual", summary.items.toLocaleString("id-ID"))}${summary.deficit > 0 ? metric("Defisit hari ini", `− ${rupiah(summary.deficit)}`, "negative") : ""}
       </section>
-      <section class="grid three section-gap detail-card-grid">
+      <section class="grid section-gap dashboard-detail-grid">
         <article class="card detail-card"><h4>Rincian Gaji & Bonus</h4>${salaryDetails}<div class="detail-total"><span>Total gaji & bonus</span><strong>${rupiah(summary.salary)}</strong></div></article>
         <article class="card detail-card"><h4>Rincian Pengeluaran</h4>${expenseDetails}<div class="detail-total"><span>Total pengeluaran</span><strong>${rupiah(summary.expenses)}</strong></div></article>
         <article class="card detail-card"><h4>Rincian Alokasi</h4>${allocationDetails}<div class="detail-total"><span>Total alokasi</span><strong>${rupiah(summary.fixedAllocations + summary.percentageAllocations)}</strong></div></article>
-      </section>
-      <section class="section-gap">
-        <article class="card"><h4>Alur perhitungan</h4>
+        <article class="card detail-card"><h4>Alur perhitungan</h4>
           <div class="split-row"><span>Laba kotor</span><strong>${rupiah(summary.grossProfit)}</strong></div>
           <div class="split-row"><span>Gaji dan bonus</span><strong class="negative">− ${rupiah(summary.salary)}</strong></div>
           <div class="split-row"><span>Semua pengeluaran</span><strong class="negative">− ${rupiah(summary.expenses)}</strong></div>
