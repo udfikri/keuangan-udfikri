@@ -43,6 +43,8 @@ button { cursor: pointer; }
 .nav-item:hover, .nav-item.active { color: #fff; background: rgba(255,255,255,.13); }
 .logout { margin-top: auto; }
 .workspace { min-width: 0; }
+.topbar > div { min-width: 0; }
+.topbar h2 { overflow-wrap: anywhere; }
 .topbar { position: sticky; top: 0; z-index: 15; min-height: 4.7rem; display: flex; align-items: center; gap: 1rem; padding: .65rem 1.5rem; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.92); backdrop-filter: blur(12px); }
 .topbar h2 { margin: .08rem 0 0; font-size: 1.2rem; }
 .eyebrow { margin: 0; color: var(--teal); font-size: .7rem; font-weight: 900; letter-spacing: .12em; }
@@ -212,4 +214,108 @@ body.modal-open { overflow: hidden; }
   .content { padding: .8rem; }
   .page-head { padding: 1.1rem; }
   .section-title-row { align-items: flex-start; flex-direction: column; }
+}
+
+/* Responsif presisi: desktop, tablet landscape/potret, dan HP */
+html, body { max-width: 100%; overflow-x: hidden; }
+.workspace, .content, .card, .table-wrap, .form-grid > *, .grid > * { min-width: 0; }
+.content { width: min(86rem, 100%); }
+.metric-value { font-size: clamp(1.05rem, 1.7vw, 1.45rem); overflow-wrap: anywhere; }
+.page-head h3 { font-size: clamp(1.15rem, 2vw, 1.45rem); }
+.button-row { max-width: 100%; }
+.table-wrap { overscroll-behavior-inline: contain; -webkit-overflow-scrolling: touch; }
+.table-wrap table { min-width: max-content; }
+th, td { vertical-align: middle; }
+.salary-line > *, .split-row > * { min-width: 0; }
+.split-row span { overflow-wrap: anywhere; }
+
+/* Tablet landscape dan laptop kecil: menu masuk hamburger sebelum bertumpuk */
+@media (max-width: 1280px) {
+  .header-inner { position: relative; min-height: 4.6rem; }
+  .header-brand img { width: 3.6rem; height: 2.7rem; }
+  .mobile-menu { display: grid; place-items: center; flex: 0 0 auto; }
+  .public-nav { position: absolute; top: calc(100% + .35rem); right: 0; width: min(22rem, calc(100vw - 2rem)); max-height: calc(100vh - 6rem); overflow-y: auto; display: none; grid-template-columns: 1fr; padding: .75rem; border: 1px solid #dfeaec; border-radius: .9rem; background: #fff; box-shadow: 0 18px 45px rgba(18,55,61,.16); }
+  .public-nav.open { display: grid; transform: none; }
+  .public-nav .nav-item { width: 100%; padding: .72rem .8rem; text-align: left; }
+  .public-nav .logout { margin: .25rem 0 0; }
+  .topbar { top: 4.6rem; }
+  .content, .topbar { padding-inline: clamp(1rem, 2.3vw, 1.5rem); }
+  .section-title-row { flex-wrap: wrap; }
+}
+
+/* Tablet landscape */
+@media (min-width: 901px) and (max-width: 1280px) {
+  .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; }
+  .grid.two { gap: .85rem; }
+  .grid.three, .detail-card-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; }
+  .card { padding: 1rem; }
+  .detail-card { min-height: 230px; }
+  th, td { padding: .68rem .7rem; }
+}
+
+/* Tablet potret */
+@media (min-width: 601px) and (max-width: 900px) {
+  .header-inner { width: calc(100% - 1.5rem); }
+  .topbar { min-height: 3.9rem; align-items: center; }
+  .content { padding: 1rem; }
+  .page-head { padding: 1.1rem 1.2rem; }
+  .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
+  .grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .8rem; }
+  .grid.three, .detail-card-grid { grid-template-columns: 1fr; }
+  .form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .card { padding: 1rem; }
+  .detail-card { min-height: auto; }
+  .salary-line { grid-template-columns: minmax(8rem, 1.2fr) 4rem minmax(6rem, 1fr); gap: .55rem; }
+  table { font-size: .8rem; }
+  th, td { padding: .65rem; }
+}
+
+/* HP besar dan kecil */
+@media (max-width: 600px) {
+  html { font-size: 15px; }
+  .header-inner { width: calc(100% - 1rem); min-height: 4.15rem; }
+  .header-brand { gap: .55rem; }
+  .header-brand img { width: 3rem; height: 2.35rem; }
+  .header-brand strong { font-size: .92rem; }
+  .mobile-menu { width: 2.55rem; height: 2.55rem; }
+  .public-nav { right: 0; width: min(20rem, calc(100vw - 1rem)); max-height: calc(100vh - 5rem); }
+  .topbar { position: sticky; top: 4.15rem; min-height: 3.7rem; padding: .5rem .75rem; }
+  .topbar .eyebrow { font-size: .58rem; }
+  .active-date input { width: 8.15rem; min-height: 2.35rem; padding: .45rem .55rem; }
+  .content { padding: .7rem; }
+  .page-head { gap: .75rem; padding: .95rem; margin-bottom: .85rem; }
+  .page-head p { font-size: .82rem; line-height: 1.45; }
+  .page-head .button, .page-head .field { width: 100%; }
+  .metric-grid, .grid.two, .grid.three, .detail-card-grid, .form-grid, .search-row { grid-template-columns: 1fr; gap: .7rem; }
+  .card { padding: .9rem; border-radius: .8rem; }
+  .card h4 { margin-bottom: .75rem; }
+  .metric { min-height: 6rem; }
+  .metric-value { margin-top: .4rem; }
+  .detail-card { min-height: auto; }
+  .section-gap { margin-top: .9rem; }
+  .section-title-row { gap: .65rem; margin-bottom: .75rem; }
+  .section-title-row .button-row, .section-title-row > .button { width: 100%; }
+  .section-title-row .button-row .button { flex: 1 1 8rem; }
+  .button { min-height: 2.5rem; }
+  .button-row { gap: .45rem; }
+  .notice { padding: .7rem .75rem; font-size: .8rem; }
+  .salary-line { grid-template-columns: minmax(0, 1fr) minmax(6.5rem, .75fr); gap: .5rem; }
+  .salary-line > strong { grid-column: 1 / -1; }
+  .split-row { gap: .65rem; font-size: .86rem; }
+  .table-wrap { margin-inline: 0; }
+  table { min-width: 40rem; font-size: .78rem; }
+  th, td { padding: .62rem; }
+  input, select, textarea { min-height: 2.55rem; }
+  .modal-card { width: 100%; padding: 1rem; }
+  .bar-chart { min-height: 170px; }
+}
+
+@media (max-width: 380px) {
+  html { font-size: 14px; }
+  .header-brand small { display: none; }
+  .topbar h2 { max-width: 9rem; line-height: 1.2; }
+  .active-date input { width: 7.8rem; }
+  .salary-line { grid-template-columns: 1fr; }
+  .salary-line > strong { grid-column: auto; }
+  .button-row .button { flex: 1 1 100%; }
 }
