@@ -314,8 +314,8 @@
       </section>
       <section class="card section-gap"><div class="section-title-row"><h4>Produk terjual</h4><div class="button-row">${imported ? `<button class="button primary small" data-action="add-product" data-id="${imported.id}">Tambah manual</button><button class="button danger small" data-action="delete-import" data-id="${imported.id}">Hapus seluruh import</button>` : ""}</div></div><div class="notice info">Modal satuan dihitung dari data impor dan dapat disesuaikan. Mengubah item atau modal satuan akan menghitung ulang modal total dan laba.</div><div class="table-wrap"><table class="products-table"><thead><tr><th>Produk</th><th>Penjualan</th><th class="item-column">Item</th><th>Modal/satuan</th><th>Laba</th><th>Modal total</th><th>Aksi</th></tr></thead><tbody>${productRows}</tbody></table></div></section>
       <section class="grid two section-gap">
-        <article class="card"><div class="section-title-row"><h4>Gaji & bonus</h4><div class="button-row"><button class="button primary small" data-action="add-salary">Tambah</button><button class="button edit small" data-go="salary">Riwayat gaji</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${salaryDeductions}</tbody></table></div></article>
-        <article class="card"><div class="section-title-row"><h4>Pengeluaran</h4><div class="button-row"><button class="button primary small" data-action="add-expense">Tambah</button><button class="button edit small" data-go="expenses">Riwayat pengeluaran</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${expenseDeductions}</tbody></table></div></article>
+        <article class="card"><div class="section-title-row"><h4>Gaji & bonus yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-salary">Tambah</button><button class="button edit small" data-go="salary">Riwayat gaji</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${salaryDeductions}</tbody></table></div></article>
+        <article class="card"><div class="section-title-row"><h4>Pengeluaran yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-expense">Tambah</button><button class="button edit small" data-go="expenses">Riwayat pengeluaran</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${expenseDeductions}</tbody></table></div></article>
       </section>
       <section class="card section-gap"><h4>Finalisasi laporan</h4><div class="notice ${summary.deficit > 0 ? "danger-note" : "info"}"><strong>${summary.deficit > 0 ? `Defisit ${rupiah(summary.deficit)}` : `Total potongan ${rupiah(summary.salary + summary.expenses + summary.fixedAllocations)}`}</strong><br>Gaji & bonus ${rupiah(summary.salary)} + semua pengeluaran ${rupiah(summary.expenses)} + alokasi tetap ${rupiah(summary.fixedAllocations)}.</div><p class="muted">Data gaji tetap masuk Riwayat Gaji. Data pengeluaran tetap masuk Riwayat Pengeluaran.</p><button class="button success" data-action="close-book" ${imported && !locked ? "" : "disabled"}>${report ? "Perbarui dan kunci kembali" : "Simpan dan kunci tutup buku"}</button></section>`;
   }
@@ -1195,5 +1195,54 @@
   document.addEventListener("keydown", event => { if (event.key !== "Escape") return; if (!$("#formModal").classList.contains("hidden")) closeFormModal(); if (!$("#detailModal").classList.contains("hidden")) closeDetailModal(); });
   window.addEventListener("unhandledrejection", event => { event.preventDefault(); toast(event.reason?.message || "Proses gagal dijalankan.", "error"); });
 
+  let installPrompt = null;
+  let pwaReloading = false;
+
+  function showPwaUpdate(registration) {
+    if (!registration.waiting) return;
+    $("#updateBanner").classList.remove("hidden");
+    $("#updateButton").onclick = () => registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+  }
+
+  async function registerPwa() {
+    if (!("serviceWorker" in navigator) || !/^https?:$/.test(location.protocol)) return;
+    try {
+      const registration = await navigator.serviceWorker.register("./sw.js", { scope: "./" });
+      showPwaUpdate(registration);
+      registration.addEventListener("updatefound", () => {
+        const worker = registration.installing;
+        worker?.addEventListener("statechange", () => {
+          if (worker.state === "installed" && navigator.serviceWorker.controller) showPwaUpdate(registration);
+        });
+      });
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (pwaReloading) return;
+        pwaReloading = true;
+        location.reload();
+      });
+      registration.update().catch(() => {});
+    } catch (error) {
+      console.warn("PWA tidak dapat diaktifkan:", error);
+    }
+  }
+
+  window.addEventListener("beforeinstallprompt", event => {
+    event.preventDefault();
+    installPrompt = event;
+    $("#installButton").classList.remove("hidden");
+  });
+  $("#installButton").addEventListener("click", async () => {
+    if (!installPrompt) return;
+    await installPrompt.prompt();
+    installPrompt = null;
+    $("#installButton").classList.add("hidden");
+  });
+  window.addEventListener("appinstalled", () => {
+    installPrompt = null;
+    $("#installButton").classList.add("hidden");
+    toast("Aplikasi UD Fikri berhasil dipasang.");
+  });
+
+  registerPwa();
   initialize().catch(error => toast(error.message, "error"));
 })();
