@@ -8,12 +8,13 @@
     page: "dashboard",
     settings: { store_name: "UD Fikri", active_date: localDate() },
     employees: [], imports: [], products: [], salaries: [], withdrawals: [],
-    expenses: [], rules: [], reports: [], profile: null, profiles: [], categories: [], audits: [], parsedImport: null
+    expenses: [], rules: [], reports: [], profile: null, profiles: [], categories: [], audits: [],
+    cash: [], allocationWithdrawals: [], reportMonth: localDate().slice(0, 7), parsedImport: null
   };
 
   const titles = {
     dashboard: "Dashboard", sales: "Import & Tutup Buku", salary: "Gaji Karyawan",
-    expenses: "Pengeluaran", master: "Kelola Data"
+    expenses: "Pengeluaran", reports: "Laporan & Kas", master: "Kelola Data"
   };
 
   function localDate(date = new Date()) {
@@ -168,7 +169,9 @@
         db.from("profiles").select("*").eq("id", user.id).maybeSingle(),
         db.from("profiles").select("*").order("full_name"),
         db.from("expense_categories").select("*").order("name"),
-        db.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100)
+        db.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100),
+        db.from("cash_reconciliations").select("*").order("report_date", { ascending: false }),
+        db.from("allocation_withdrawals").select("*").order("withdrawal_date", { ascending: false })
       ]);
       queries.forEach(assertResult);
       state.settings = queries[0].data || state.settings;
@@ -177,6 +180,8 @@
       state.profiles = queries[10].data || [];
       state.categories = queries[11].data || [];
       state.audits = queries[12].data || [];
+      state.cash = queries[13].data || [];
+      state.allocationWithdrawals = queries[14].data || [];
       if (!state.profile?.active) throw new Error("Akun Anda belum aktif atau telah dinonaktifkan.");
       $("#brandName").textContent = state.settings.store_name;
       $("#userRole").textContent = role().toUpperCase();
@@ -197,17 +202,18 @@
   }
 
   function renderPage() {
-    const renderers = { dashboard: renderDashboard, sales: renderSales, salary: renderSalary, expenses: renderExpenses, master: renderMaster };
+    const renderers = { dashboard: renderDashboard, sales: renderSales, salary: renderSalary, expenses: renderExpenses, reports: renderReports, master: renderMaster };
     $("#mainContent").innerHTML = renderers[state.page]();
     bindPageEvents();
     applyPermissions();
   }
 
   function applyPermissions() {
-    if (!canWrite()) $$("#mainContent form input, #mainContent form select, #mainContent form textarea, #mainContent form button, #mainContent [data-action]").forEach(element => element.disabled = true);
+    if (!canWrite()) $$("#mainContent form input, #mainContent form select, #mainContent form textarea, #mainContent form button, #mainContent [data-action]:not([data-action='export-excel']):not([data-action='print-report'])").forEach(element => element.disabled = true);
     if (!canDelete()) $$('[data-action^="delete-"]').forEach(element => element.remove());
     if (!canManageMaster()) $$('[data-action$="category"]').forEach(element => element.remove());
     if (!canManageUsers()) $$('[data-action="edit-profile"]').forEach(element => element.remove());
+    if (!canManageMaster()) $$('[data-action="backup-data"]').forEach(element => element.remove());
   }
 
   function metric(label, value, tone = "") {
@@ -331,6 +337,69 @@
       <section class="card section-gap"><h4>Riwayat semua pengeluaran</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Aksi</th></tr></thead><tbody>${history}</tbody></table></div></section>`;
   }
 
+  function monthlyData() {
+    const month = state.reportMonth;
+    const reports = state.reports.filter(row => row.report_date.startsWith(month)).sort((a, b) => a.report_date.localeCompare(b.report_date));
+    const date = new Date(`${month}-01T00:00:00`); date.setMonth(date.getMonth() - 1);
+    const previousMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+    const previousReports = state.reports.filter(row => row.report_date.startsWith(previousMonth));
+    const sales = sum(reports, "product_sales"), previousSales = sum(previousReports, "product_sales");
+    return { month, reports, sales, previousSales, change: previousSales ? (sales - previousSales) / previousSales * 100 : null, capital: sum(reports, "capital"), profit: sum(reports, "gross_profit"), salary: sum(reports, "salary"), expenses: sum(reports, "expenses"), owner: sum(reports, "owner_result") };
+  }
+
+  function expectedCashForDate(date) {
+    const imported = state.imports.find(row => row.report_date === date);
+    const previous = state.cash.filter(row => row.report_date < date).sort((a, b) => b.report_date.localeCompare(a.report_date))[0];
+    const opening = num(previous?.actual_cash);
+    const receipts = num(imported?.source_total_sales || (num(imported?.product_sales) + num(imported?.shipping)));
+    const expenseOut = state.expenses.filter(row => row.expense_date === date).reduce((total, row) => total + num(row.amount), 0);
+    const salaryOut = state.withdrawals.filter(row => row.withdrawal_date === date).reduce((total, row) => total + num(row.amount), 0);
+    const allocationOut = state.allocationWithdrawals.filter(row => row.withdrawal_date === date).reduce((total, row) => total + num(row.amount), 0);
+    return { opening, receipts, expenseOut, salaryOut, allocationOut, expected: opening + receipts - expenseOut - salaryOut - allocationOut };
+  }
+
+  function allocationBalances() {
+    const map = new Map();
+    state.reports.forEach(report => (Array.isArray(report.allocation_json) ? report.allocation_json : []).filter(row => ["fixed", "percent"].includes(row.type)).forEach(row => {
+      const item = map.get(row.name) || { name: row.name, earned: 0, withdrawn: 0 };
+      item.earned += num(row.amount); map.set(row.name, item);
+    }));
+    state.allocationWithdrawals.forEach(row => {
+      const item = map.get(row.allocation_name) || { name: row.allocation_name, earned: 0, withdrawn: 0 };
+      item.withdrawn += num(row.amount); map.set(row.allocation_name, item);
+    });
+    return [...map.values()].map(row => ({ ...row, balance: row.earned - row.withdrawn })).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  function renderReports() {
+    const month = monthlyData();
+    const maxSales = Math.max(1, ...month.reports.map(row => num(row.product_sales)));
+    const chart = month.reports.length ? month.reports.map(row => `<div class="bar-column"><div class="bar-value">${rupiah(row.product_sales)}</div><div class="bar" style="height:${Math.max(5, num(row.product_sales) / maxSales * 150)}px"></div><small>${String(row.report_date).slice(8,10)}</small></div>`).join("") : '<div class="empty">Belum ada laporan pada bulan ini.</div>';
+    const rows = month.reports.length ? month.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.owner_result)}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada laporan.</td></tr>';
+    const balances = allocationBalances();
+    const balanceRows = balances.length ? balances.map(row => `<tr><td><strong>${escapeHtml(row.name)}</strong></td><td>${rupiah(row.earned)}</td><td>${rupiah(row.withdrawn)}</td><td><strong>${rupiah(row.balance)}</strong></td></tr>`).join("") : '<tr><td colspan="4" class="empty">Belum ada saldo alokasi.</td></tr>';
+    const productMap = new Map();
+    state.products.filter(row => row.report_date.startsWith(month.month)).forEach(row => { const item = productMap.get(row.product) || { name: row.product, items: 0, sales: 0, profit: 0 }; item.items += num(row.items); item.sales += num(row.sales); item.profit += num(row.profit); productMap.set(row.product, item); });
+    const topProducts = [...productMap.values()].sort((a, b) => b.items - a.items).slice(0, 10);
+    const topRows = topProducts.length ? topProducts.map((row, index) => `<tr><td>${index + 1}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${row.items.toLocaleString("id-ID")}</td><td>${rupiah(row.sales)}</td><td>${rupiah(row.profit)}</td></tr>`).join("") : '<tr><td colspan="5" class="empty">Belum ada produk.</td></tr>';
+    const withdrawalRows = state.allocationWithdrawals.length ? state.allocationWithdrawals.map(row => `<tr><td>${formatDate(row.withdrawal_date)}</td><td>${escapeHtml(row.allocation_name)}</td><td>${rupiah(row.amount)}</td><td>${escapeHtml(row.notes || "-")}</td><td><button class="button danger small" data-action="delete-allocation-withdrawal" data-id="${row.id}">Hapus</button></td></tr>`).join("") : '<tr><td colspan="5" class="empty">Belum ada pengambilan alokasi.</td></tr>';
+    const cashPosition = expectedCashForDate(currentDate());
+    const expected = cashPosition.expected;
+    const currentCash = state.cash.find(row => row.report_date === currentDate());
+    const cashRows = state.cash.length ? state.cash.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.expected_cash)}</td><td>${rupiah(row.actual_cash)}</td><td class="${num(row.difference) < 0 ? "negative" : "positive"}">${rupiah(row.difference)}</td><td>${escapeHtml(row.notes || "-")}</td><td><button class="button danger small" data-action="delete-cash" data-id="${row.id}">Hapus</button></td></tr>`).join("") : '<tr><td colspan="6" class="empty">Belum ada pencocokan kas.</td></tr>';
+    const ruleOptions = state.rules.filter(row => row.active).map(row => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join("");
+    return `<div class="page-head"><div><h3>Laporan & Kas</h3><p>Rekap bulanan, saldo alokasi, pencocokan kas, dan backup.</p></div><label class="field"><span>Bulan laporan</span><input id="reportMonth" type="month" value="${month.month}"></label></div>
+      <section class="grid metric-grid">${metric("Penjualan", rupiah(month.sales))}${metric("Modal", rupiah(month.capital))}${metric("Laba kotor", rupiah(month.profit), "positive")}${metric("Gaji", rupiah(month.salary), "negative")}${metric("Pengeluaran", rupiah(month.expenses), "negative")}${metric("Hasil pemilik", rupiah(month.owner), "positive")}${metric("Dibanding bulan lalu", month.change === null ? "Belum ada data" : `${month.change >= 0 ? "+" : ""}${month.change.toFixed(1)}%`, month.change !== null && month.change >= 0 ? "positive" : "negative")}</section>
+      <section class="card"><div class="section-title-row"><h4>Grafik omzet harian</h4><div class="button-row"><button class="button primary small" data-action="export-excel">Export Excel</button><button class="button secondary small" data-action="print-report">Cetak / PDF</button><button class="button ghost small" data-action="backup-data">Backup data</button></div></div><div class="bar-chart">${chart}</div></section>
+      <section class="card section-gap"><h4>Rekap bulan terpilih</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Pemilik</th></tr></thead><tbody>${rows}</tbody></table></div></section>
+      <section class="card section-gap"><h4>10 produk terlaris</h4><div class="table-wrap"><table><thead><tr><th>Peringkat</th><th>Produk</th><th>Item</th><th>Penjualan</th><th>Laba</th></tr></thead><tbody>${topRows}</tbody></table></div></section>
+      <section class="grid two section-gap"><form id="cashForm" class="card"><h4>Pencocokan kas ${formatDate(currentDate())}</h4><div class="notice info">Saldo awal ${rupiah(cashPosition.opening)} + penerimaan ${rupiah(cashPosition.receipts)} − pengeluaran ${rupiah(cashPosition.expenseOut)} − pengambilan gaji ${rupiah(cashPosition.salaryOut)} − pengambilan alokasi ${rupiah(cashPosition.allocationOut)}.</div><div class="form-grid"><div class="field"><label>Kas menurut sistem</label><input id="expectedCash" type="number" value="${expected}" readonly></div><div class="field"><label>Kas yang dihitung</label><input id="actualCash" type="number" min="0" value="${num(currentCash?.actual_cash)}" required></div><div class="field full"><label>Catatan selisih</label><input id="cashNotes" value="${escapeHtml(currentCash?.notes || "")}" placeholder="Wajib jika ada selisih"></div></div><button class="button primary section-gap" type="submit">Simpan pencocokan</button></form>
+      <form id="allocationWithdrawalForm" class="card"><h4>Ambil dana alokasi</h4><div class="form-grid"><div class="field"><label>Alokasi</label><select id="allocationRule" required>${ruleOptions}</select></div><div class="field"><label>Nominal</label><input id="allocationAmount" type="number" min="1" required></div><div class="field full"><label>Catatan</label><input id="allocationNotes" required placeholder="Tujuan pengambilan"></div></div><button class="button primary section-gap" type="submit">Simpan pengambilan</button></form></section>
+      <section class="card section-gap"><h4>Saldo alokasi</h4><div class="table-wrap"><table><thead><tr><th>Alokasi</th><th>Terkumpul</th><th>Diambil</th><th>Saldo</th></tr></thead><tbody>${balanceRows}</tbody></table></div></section>
+      <section class="card section-gap"><h4>Riwayat pengambilan alokasi</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Alokasi</th><th>Nominal</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody>${withdrawalRows}</tbody></table></div></section>
+      <section class="card section-gap"><h4>Riwayat pencocokan kas</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Sistem</th><th>Aktual</th><th>Selisih</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody>${cashRows}</tbody></table></div></section>`;
+  }
+
   function renderMaster() {
     const employees = state.employees.length ? state.employees.map(row => `<tr><td><strong>${escapeHtml(row.name)}</strong></td><td>${rupiah(row.daily_salary)}</td><td><span class="pill ${row.active ? "" : "off"}">${row.active ? "Aktif" : "Nonaktif"}</span></td><td><div class="button-row"><button class="button edit small" data-action="edit-employee" data-id="${row.id}">Edit</button><button class="button ${row.active ? "variant" : "success"} small" data-action="toggle-employee" data-id="${row.id}" data-active="${!row.active}">${row.active ? "Nonaktifkan" : "Aktifkan"}</button><button class="button danger small" data-action="delete-employee" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="4" class="empty">Belum ada karyawan.</td></tr>';
     const rules = state.rules.length ? state.rules.map(row => `<tr><td>${row.sort_order}</td><td><strong>${escapeHtml(row.name)}</strong></td><td>${row.rule_type === "fixed" ? "Nominal tetap" : "Persentase"}</td><td>${row.allocation_target === "owner" || (!row.allocation_target && /pemilik/i.test(row.name)) ? "Pemilik" : "Dana/kebutuhan lain"}</td><td>${row.rule_type === "fixed" ? rupiah(row.value) : `${num(row.value)}%`}</td><td><span class="pill ${row.active ? "" : "off"}">${row.active ? "Aktif" : "Nonaktif"}</span></td><td><div class="button-row"><button class="button edit small" data-action="edit-rule" data-id="${row.id}">Edit</button><button class="button ${row.active ? "variant" : "success"} small" data-action="toggle-rule" data-id="${row.id}" data-active="${!row.active}">${row.active ? "Nonaktifkan" : "Aktifkan"}</button><button class="button danger small" data-action="delete-rule" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada aturan.</td></tr>';
@@ -364,6 +433,9 @@
     if ($("#settingsForm")) $("#settingsForm").onsubmit = saveSettings;
     if ($("#employeeForm")) $("#employeeForm").onsubmit = saveEmployee;
     if ($("#ruleForm")) $("#ruleForm").onsubmit = saveRule;
+    if ($("#cashForm")) $("#cashForm").onsubmit = saveCash;
+    if ($("#allocationWithdrawalForm")) $("#allocationWithdrawalForm").onsubmit = saveAllocationWithdrawal;
+    if ($("#reportMonth")) $("#reportMonth").onchange = event => { state.reportMonth = event.target.value || localDate().slice(0, 7); renderPage(); };
     $$(".salary-present, .salary-base, .salary-bonus").forEach(input => input.oninput = updateSalaryTotal);
     $$(".item-input, .unit-capital-input").forEach(input => input.oninput = updateProductCostPreview);
     if ($("#salarySearch")) $("#salarySearch").oninput = filterSalaryHistory;
@@ -421,6 +493,11 @@
       if (action === "toggle-category") await toggleRecord("expense_categories", id, button.dataset.active === "true");
       if (action === "delete-category") await deleteRecord("expense_categories", id, "Kategori");
       if (action === "edit-profile") await editProfile(id);
+      if (action === "delete-allocation-withdrawal") await deleteRecord("allocation_withdrawals", id, "Pengambilan alokasi");
+      if (action === "delete-cash") await deleteRecord("cash_reconciliations", id, "Pencocokan kas");
+      if (action === "export-excel") exportMonthlyExcel();
+      if (action === "print-report") printMonthlyReport();
+      if (action === "backup-data") backupData();
     } catch (error) { toast(error.message, "error"); }
   }
 
@@ -786,6 +863,58 @@
     toast("Status diperbarui."); await loadData();
   }
 
+  async function saveCash(event) {
+    event.preventDefault();
+    const expected = num($("#expectedCash").value), actual = num($("#actualCash").value);
+    const difference = actual - expected, notes = $("#cashNotes").value.trim();
+    if (difference !== 0 && !notes) throw new Error("Catatan wajib diisi jika terdapat selisih kas.");
+    assertResult(await db.from("cash_reconciliations").upsert({ report_date: currentDate(), expected_cash: expected, actual_cash: actual, difference, notes, updated_at: new Date().toISOString() }, { onConflict: "report_date" }));
+    toast("Pencocokan kas tersimpan."); await loadData();
+  }
+
+  async function saveAllocationWithdrawal(event) {
+    event.preventDefault();
+    const rule = state.rules.find(row => row.id === $("#allocationRule").value);
+    const amount = num($("#allocationAmount").value);
+    if (!rule || amount <= 0) throw new Error("Pilih alokasi dan isi nominal yang valid.");
+    const balance = allocationBalances().find(row => row.name === rule.name)?.balance || 0;
+    if (amount > balance) throw new Error(`Nominal melebihi saldo ${rule.name} (${rupiah(balance)}).`);
+    assertResult(await db.from("allocation_withdrawals").insert({ withdrawal_date: currentDate(), allocation_rule_id: rule.id, allocation_name: rule.name, amount, notes: $("#allocationNotes").value.trim() }));
+    toast("Pengambilan alokasi tersimpan."); await loadData();
+  }
+
+  function downloadBlob(name, content, type) {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const link = Object.assign(document.createElement("a"), { href: url, download: name });
+    link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  function exportMonthlyExcel() {
+    const { month, reports } = monthlyData();
+    const inMonth = value => String(value || "").startsWith(month);
+    const workbook = XLSX.utils.book_new();
+    const add = (name, rows) => XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows.length ? rows : [{ Keterangan: "Tidak ada data" }]), name);
+    add("Ringkasan", reports.map(row => ({ Tanggal: row.report_date, Penjualan: num(row.product_sales), Modal: num(row.capital), Laba_Kotor: num(row.gross_profit), Gaji_Bonus: num(row.salary), Pengeluaran: num(row.expenses), Dasar_Alokasi: num(row.profit_to_share), Pemilik: num(row.owner_result) })));
+    add("Produk", state.products.filter(row => inMonth(row.report_date)).map(row => ({ Tanggal: row.report_date, Produk: row.product, Penjualan: num(row.sales), Item: num(row.items), Modal_Satuan: num(row.unit_capital), Modal_Total: num(row.capital), Laba: num(row.profit) })));
+    add("Gaji", state.salaries.filter(row => inMonth(row.salary_date)).map(row => ({ Tanggal: row.salary_date, Karyawan: row.employee_name, Gaji_Pokok: num(row.base_salary), Bonus: num(row.bonus), Total: num(row.total), Catatan: row.notes || "" })));
+    add("Pengeluaran", state.expenses.filter(row => inMonth(row.expense_date)).map(row => ({ Tanggal: row.expense_date, Jenis: row.expense_type, Karyawan: row.employee_name || "", Kategori: row.category, Nominal: num(row.amount), Catatan: row.description || "" })));
+    XLSX.writeFile(workbook, `Laporan-UD-Fikri-${month}.xlsx`);
+  }
+
+  function printMonthlyReport() {
+    const month = monthlyData();
+    const rows = month.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.owner_result)}</td></tr>`).join("");
+    const popup = window.open("", "_blank");
+    if (!popup) throw new Error("Izinkan pop-up browser untuk mencetak laporan.");
+    popup.document.write(`<html><head><title>Laporan UD Fikri ${month.month}</title><style>body{font-family:Arial;padding:28px;color:#163738}h1{margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:9px;border:1px solid #ccd;text-align:left}th{background:#e5f4f0}.summary{display:flex;gap:25px;flex-wrap:wrap;margin-top:18px}.summary b{display:block;font-size:18px}@media print{button{display:none}}</style></head><body><h1>UD Fikri</h1><div>Laporan bulan ${month.month}</div><div class="summary"><span>Penjualan<b>${rupiah(month.sales)}</b></span><span>Modal<b>${rupiah(month.capital)}</b></span><span>Laba<b>${rupiah(month.profit)}</b></span><span>Pemilik<b>${rupiah(month.owner)}</b></span></div><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Pemilik</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`);
+    popup.document.close();
+  }
+
+  function backupData() {
+    const backup = { exported_at: new Date().toISOString(), settings: state.settings, employees: state.employees, imports: state.imports, products: state.products, salaries: state.salaries, salary_withdrawals: state.withdrawals, expenses: state.expenses, allocation_rules: state.rules, daily_reports: state.reports, allocation_withdrawals: state.allocationWithdrawals, cash_reconciliations: state.cash, expense_categories: state.categories };
+    downloadBlob(`Backup-UD-Fikri-${localDate()}.json`, JSON.stringify(backup, null, 2), "application/json");
+  }
+
   async function closeBook() {
     ensureUnlocked();
     const imported = currentImport();
@@ -804,8 +933,10 @@
 
   async function reopenBook() {
     const report = currentReport();
-    if (!report || !confirm(`Buka kembali tutup buku ${formatDate(currentDate())}? Data pada tanggal ini akan dapat diedit.`)) return;
-    assertResult(await db.from("daily_reports").update({ book_status: "reopened", reopened_at: new Date().toISOString() }).eq("id", report.id));
+    if (!report) return;
+    const data = await openFormModal(`Buka kembali ${formatDate(currentDate())}`, [{ name: "reason", label: "Alasan membuka kembali", type: "textarea", required: true, full: true, placeholder: "Contoh: koreksi jumlah item" }], "Buka kembali");
+    if (!data) return;
+    assertResult(await db.from("daily_reports").update({ book_status: "reopened", reopened_at: new Date().toISOString(), reopen_reason: data.reason.trim(), reopened_by: state.profile?.id || null }).eq("id", report.id));
     toast("Tutup buku dibuka kembali."); await loadData();
   }
 
