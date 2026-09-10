@@ -6,7 +6,7 @@
   <meta name="description" content="Sistem hasil penjualan harian UD Fikri">
   <title>UD Fikri — Hasil Penjualan</title>
   <link rel="icon" type="image/png" href="assets/logo-ud-fikri.png">
-  <link rel="stylesheet" href="css/style.css?v=16">
+  <link rel="stylesheet" href="css/style.css?v=18">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
@@ -33,6 +33,7 @@
         </button>
         <button id="menuButton" class="mobile-menu" aria-label="Buka menu"><i class="fa-solid fa-bars"></i></button>
         <nav id="sidebar" class="public-nav" aria-label="Menu utama">
+        <button class="nav-item hidden" data-page="mySalary">Gaji Saya</button>
         <button class="nav-item active" data-page="dashboard">Dashboard</button>
         <button class="nav-item" data-page="sales">Import & Tutup Buku</button>
         <button class="nav-item" data-page="salary">Gaji Karyawan</button>
@@ -62,9 +63,15 @@
       <div class="modal-actions"><button class="button ghost" type="button" data-modal-cancel>Batal</button><button id="modalSubmit" class="button primary" type="submit">Simpan</button></div>
     </form>
   </div>
+  <div id="detailModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+    <div class="modal-card detail-modal-card">
+      <div class="modal-head"><div><p class="eyebrow">UD FIKRI</p><h3 id="detailTitle">Detail laporan</h3></div><button id="detailClose" class="modal-close" type="button" aria-label="Tutup">×</button></div>
+      <div id="detailContent"></div>
+    </div>
+  </div>
 
-  <script src="js/config.js?v=16"></script>
-  <script src="js/supabase.js?v=16"></script>
-  <script src="js/app.js?v=16"></script>
+  <script src="js/config.js?v=18"></script>
+  <script src="js/supabase.js?v=18"></script>
+  <script src="js/app.js?v=18"></script>
 </body>
 </html>
