@@ -8,7 +8,7 @@
     page: "dashboard",
     settings: { store_name: "UD Fikri", active_date: localDate() },
     employees: [], imports: [], products: [], salaries: [], withdrawals: [],
-    expenses: [], rules: [], reports: [], profile: null, profiles: [], categories: [], audits: [],
+    expenses: [], rules: [], reports: [], profile: null, profiles: [], categories: [], audits: [], openingBalances: [],
     cash: [], allocationWithdrawals: [], monthlyClosings: [], reportMonth: localDate().slice(0, 7),
     salaryMonth: localDate().slice(0, 7), parsedImport: null
   };
@@ -103,9 +103,12 @@
 
   function salaryLedger() {
     return state.employees.map(employee => {
-      const earned = state.salaries.filter(row => row.employee_id === employee.id).reduce((total, row) => total + num(row.total), 0);
-      const withdrawn = state.withdrawals.filter(row => row.employee_id === employee.id).reduce((total, row) => total + num(row.amount), 0);
-      return { employee_id: employee.id, employee_name: employee.name, earned, withdrawn, balance: earned - withdrawn };
+      const opening = state.openingBalances.find(row => row.employee_id === employee.id);
+      const openingEarned = num(opening?.prior_salary) + num(opening?.prior_bonus);
+      const openingWithdrawn = num(opening?.prior_withdrawn);
+      const earned = openingEarned + state.salaries.filter(row => row.employee_id === employee.id).reduce((total, row) => total + num(row.total), 0);
+      const withdrawn = openingWithdrawn + state.withdrawals.filter(row => row.employee_id === employee.id).reduce((total, row) => total + num(row.amount), 0);
+      return { employee_id: employee.id, employee_name: employee.name, opening, openingEarned, openingWithdrawn, earned, withdrawn, balance: earned - withdrawn };
     });
   }
 
@@ -175,7 +178,8 @@
         db.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100),
         db.from("cash_reconciliations").select("*").order("report_date", { ascending: false }),
         db.from("allocation_withdrawals").select("*").order("withdrawal_date", { ascending: false }),
-        db.from("monthly_closings").select("*").order("month_key", { ascending: false })
+        db.from("monthly_closings").select("*").order("month_key", { ascending: false }),
+        db.from("salary_opening_balances").select("*").order("effective_date", { ascending: false })
       ]);
       queries.forEach(assertResult);
       state.settings = queries[0].data || state.settings;
@@ -187,6 +191,7 @@
       state.cash = queries[13].data || [];
       state.allocationWithdrawals = queries[14].data || [];
       state.monthlyClosings = queries[15].data || [];
+      state.openingBalances = queries[16].data || [];
       if (!state.profile?.active) throw new Error("Akun Anda belum aktif atau telah dinonaktifkan.");
       if (role() === "employee" && !state.profile.employee_id) throw new Error("Akun karyawan belum dihubungkan ke data karyawan. Hubungi Superadmin.");
       configureRoleView();
@@ -318,17 +323,22 @@
   function mySalaryData() {
     const employeeId = state.profile?.employee_id;
     const employee = state.employees.find(row => row.id === employeeId);
+    const opening = state.openingBalances.find(row => row.employee_id === employeeId);
     const salaries = state.salaries.filter(row => row.employee_id === employeeId);
     const withdrawals = state.withdrawals.filter(row => row.employee_id === employeeId);
     const monthSalaries = salaries.filter(row => String(row.salary_date).startsWith(state.salaryMonth));
     const monthWithdrawals = withdrawals.filter(row => String(row.withdrawal_date).startsWith(state.salaryMonth));
     const history = [
       ...monthSalaries.map(row => ({ date: row.salary_date, type: "Gaji harian", base: num(row.base_salary), bonus: num(row.bonus), amount: num(row.total), notes: row.notes || "" })),
-      ...monthWithdrawals.map(row => ({ date: row.withdrawal_date, type: "Pengambilan gaji", base: null, bonus: null, amount: -num(row.amount), notes: row.notes || "" }))
+      ...monthWithdrawals.map(row => ({ date: row.withdrawal_date, type: "Pengambilan gaji", base: null, bonus: null, amount: -num(row.amount), notes: row.notes || "" })),
+      ...(opening && String(opening.effective_date).startsWith(state.salaryMonth) ? [{ date: opening.effective_date, type: "Saldo awal", base: num(opening.prior_salary), bonus: num(opening.prior_bonus), amount: num(opening.prior_salary) + num(opening.prior_bonus) - num(opening.prior_withdrawn), notes: `${opening.notes || "Catatan sebelum sistem"} · Sudah diambil ${rupiah(opening.prior_withdrawn)}` }] : [])
     ].sort((a, b) => b.date.localeCompare(a.date) || a.type.localeCompare(b.type));
+    const openingEarned = num(opening?.prior_salary) + num(opening?.prior_bonus);
+    const openingWithdrawn = num(opening?.prior_withdrawn);
     return {
-      employee, salaries, withdrawals, monthSalaries, monthWithdrawals, history,
-      totalEarned: sum(salaries, "total"), totalWithdrawn: sum(withdrawals, "amount"),
+      employee, opening, salaries, withdrawals, monthSalaries, monthWithdrawals, history,
+      openingEarned, openingWithdrawn, openingBalance: openingEarned - openingWithdrawn,
+      totalEarned: openingEarned + sum(salaries, "total"), totalWithdrawn: openingWithdrawn + sum(withdrawals, "amount"),
       monthBase: sum(monthSalaries, "base_salary"), monthBonus: sum(monthSalaries, "bonus"),
       monthEarned: sum(monthSalaries, "total"), monthWithdrawn: sum(monthWithdrawals, "amount")
     };
@@ -342,12 +352,13 @@
       <div class="page-head employee-page-head"><div><p class="employee-greeting">Halo, ${escapeHtml(data.employee?.name || state.profile?.full_name || "Karyawan")}</p><h3>Ringkasan gaji pribadi</h3><p>Gaji, bonus, pengambilan, dan saldo yang masih tersedia.</p></div><div class="employee-head-actions"><label class="field"><span>Bulan</span><input id="mySalaryMonth" type="month" value="${state.salaryMonth}"></label><button class="button secondary" data-action="print-my-salary"><i class="fa-solid fa-print"></i> Cetak slip</button></div></div>
       <section class="grid metric-grid employee-metrics">
         ${metric("Saldo gaji tersedia", rupiah(balance), balance < 0 ? "negative" : "positive")}
+        ${metric("Saldo awal", rupiah(data.openingBalance), data.openingBalance < 0 ? "negative" : "")}
         ${metric("Gaji pokok bulan ini", rupiah(data.monthBase))}
         ${metric("Bonus bulan ini", rupiah(data.monthBonus), "positive")}
         ${metric("Sudah diambil bulan ini", rupiah(data.monthWithdrawn), "negative")}
       </section>
       <section class="grid two employee-summary-grid">
-        <article class="card"><h4>Perhitungan saldo keseluruhan</h4><div class="split-row"><span>Total hak gaji & bonus</span><strong>${rupiah(data.totalEarned)}</strong></div><div class="split-row"><span>Total sudah diambil</span><strong class="negative">− ${rupiah(data.totalWithdrawn)}</strong></div><div class="detail-total"><span>Sisa saldo gaji</span><strong class="${balance < 0 ? "negative" : "positive"}">${rupiah(balance)}</strong></div></article>
+        <article class="card"><h4>Perhitungan saldo keseluruhan</h4><div class="split-row"><span>Saldo awal per ${formatDate(data.opening?.effective_date)}</span><strong>${rupiah(data.openingBalance)}</strong></div><div class="split-row"><span>Total hak termasuk saldo awal</span><strong>${rupiah(data.totalEarned)}</strong></div><div class="split-row"><span>Total sudah diambil</span><strong class="negative">− ${rupiah(data.totalWithdrawn)}</strong></div><div class="detail-total"><span>Sisa saldo gaji</span><strong class="${balance < 0 ? "negative" : "positive"}">${rupiah(balance)}</strong></div></article>
         <article class="card"><h4>Ringkasan ${escapeHtml(state.salaryMonth)}</h4><div class="split-row"><span>Hari tercatat</span><strong>${data.monthSalaries.length} hari</strong></div><div class="split-row"><span>Gaji + bonus</span><strong class="positive">${rupiah(data.monthEarned)}</strong></div><div class="split-row"><span>Pengambilan</span><strong class="negative">− ${rupiah(data.monthWithdrawn)}</strong></div><div class="detail-total"><span>Perubahan saldo bulan ini</span><strong>${rupiah(data.monthEarned - data.monthWithdrawn)}</strong></div></article>
       </section>
       <section class="card section-gap"><div class="section-title-row"><div><h4>Riwayat gaji saya</h4><p class="muted employee-section-copy">Hanya transaksi milik Anda yang ditampilkan.</p></div></div><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Gaji pokok</th><th>Bonus</th><th>Nominal</th><th>Catatan</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
@@ -363,6 +374,7 @@
     }).join("") : '<div class="empty">Belum ada karyawan aktif.</div>';
     const options = employees.map(row => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join("");
     const ledger = salaryLedger().sort((a, b) => a.employee_name.localeCompare(b.employee_name, "id")).map(row => `<div class="split-row"><span><strong>${escapeHtml(row.employee_name)}</strong><br><small class="muted">Hak ${rupiah(row.earned)} · Diambil ${rupiah(row.withdrawn)}</small></span><strong class="positive">Sisa ${rupiah(row.balance)}</strong></div>`).join("") || '<div class="empty">Belum ada data.</div>';
+    const openingRows = state.openingBalances.length ? state.openingBalances.map(row => { const balance = num(row.prior_salary) + num(row.prior_bonus) - num(row.prior_withdrawn); return `<tr><td>${formatDate(row.effective_date)}</td><td><strong>${escapeHtml(row.employee_name)}</strong></td><td>${rupiah(row.prior_salary)}</td><td>${rupiah(row.prior_bonus)}</td><td>${rupiah(row.prior_withdrawn)}</td><td class="${balance < 0 ? "negative" : "positive"}"><strong>${rupiah(balance)}</strong></td><td>${escapeHtml(row.notes || "-")}</td><td><div class="button-row"><button class="button edit small" data-action="edit-opening-balance" data-id="${row.id}" data-admin-action>Edit</button><button class="button danger small" data-action="delete-opening-balance" data-id="${row.id}" data-admin-action>Hapus</button></div></td></tr>`; }).join("") : '<tr><td colspan="8" class="empty">Belum ada saldo awal gaji.</td></tr>';
     return `
       <div class="page-head"><div><h3>Gaji, bonus, dan pengambilan</h3><p>Hak gaji dicatat harian. Pengambilan hanya mengurangi saldo hak gaji.</p></div></div>
       <form id="salaryForm" class="card"><h4>Gaji dan bonus harian</h4><div class="salary-entry-scroll"><div class="salary-line salary-header" aria-hidden="true"><span>Karyawan</span><span>Status</span><span>Gaji pokok</span><span>Bonus</span><span>Total</span><span>Catatan</span></div>${salaryRows}</div><button class="button primary section-gap" type="submit">Simpan gaji harian</button></form>
@@ -370,15 +382,17 @@
         <form id="withdrawalForm" class="card"><h4>Pengambilan gaji</h4><div class="form-grid"><div class="field"><label>Karyawan</label><select id="withdrawEmployee" required>${options}</select></div><div class="field"><label>Nominal</label><input id="withdrawAmount" type="number" min="1" required></div><div class="field full"><label>Catatan</label><input id="withdrawNotes" placeholder="Keterangan pengambilan"></div></div><button class="button success section-gap" type="submit">Simpan pengambilan</button></form>
         <article class="card"><h4>Total gaji per karyawan</h4>${ledger}</article>
       </section>
+      <section class="card section-gap"><div class="section-title-row"><div><h4>Saldo awal gaji</h4><p class="muted employee-section-copy">Catatan hak dan pengambilan sebelum sistem aktif. Tidak mengurangi laba harian.</p></div><button class="button primary small" data-action="add-opening-balance" data-admin-action>Tambah saldo awal</button></div><div class="table-wrap"><table><thead><tr><th>Tanggal efektif</th><th>Karyawan</th><th>Hak gaji lama</th><th>Bonus lama</th><th>Sudah diambil</th><th>Sisa awal</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody>${openingRows}</tbody></table></div></section>
       <section class="card section-gap"><h4>Riwayat gaji</h4><div class="search-row"><input id="salarySearch" type="search" placeholder="Cari nama karyawan"><select id="salarySort"><option value="az">Nama A–Z</option><option value="za">Nama Z–A</option><option value="newest">Tanggal terbaru</option></select></div><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Nama</th><th>Jenis</th><th>Gaji pokok</th><th>Bonus</th><th>Total</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody id="salaryHistory">${salaryHistoryRows("", "az")}</tbody></table></div></section>`;
   }
 
   function salaryHistoryRows(query, sortMode) {
     const earned = state.salaries.map(row => ({ id: row.id, source: "salary", date: row.salary_date, employee_name: row.employee_name, type: "Gaji harian", base: num(row.base_salary), bonus: num(row.bonus), total: num(row.total), notes: row.notes || "" }));
     const taken = state.withdrawals.map(row => ({ id: row.id, source: "withdrawal", date: row.withdrawal_date, employee_name: row.employee_name, type: "Pengambilan gaji", base: null, bonus: null, total: -num(row.amount), notes: row.notes || "" }));
-    const rows = [...earned, ...taken].filter(row => !query || row.employee_name.toLowerCase().includes(query.toLowerCase()));
+    const openings = state.openingBalances.map(row => ({ id: row.id, source: "opening-balance", date: row.effective_date, employee_name: row.employee_name, type: "Saldo awal", base: num(row.prior_salary), bonus: num(row.prior_bonus), total: num(row.prior_salary) + num(row.prior_bonus) - num(row.prior_withdrawn), notes: `${row.notes || "Catatan sebelum sistem"} · Sudah diambil ${rupiah(row.prior_withdrawn)}` }));
+    const rows = [...earned, ...taken, ...openings].filter(row => !query || row.employee_name.toLowerCase().includes(query.toLowerCase()));
     rows.sort((a, b) => sortMode === "az" ? a.employee_name.localeCompare(b.employee_name, "id") || b.date.localeCompare(a.date) : sortMode === "za" ? b.employee_name.localeCompare(a.employee_name, "id") || b.date.localeCompare(a.date) : b.date.localeCompare(a.date));
-    return rows.length ? rows.map(row => `<tr><td>${formatDate(row.date)}</td><td>${escapeHtml(row.employee_name)}</td><td>${row.type}</td><td>${row.base === null ? "-" : rupiah(row.base)}</td><td>${row.bonus === null ? "-" : rupiah(row.bonus)}</td><td class="${row.total < 0 ? "negative" : "positive"}">${row.total < 0 ? "− " : ""}${rupiah(Math.abs(row.total))}</td><td>${escapeHtml(row.notes || "-")}</td><td><div class="button-row"><button class="button edit small" data-action="edit-${row.source}" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-${row.source}" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="8" class="empty">Data tidak ditemukan.</td></tr>';
+    return rows.length ? rows.map(row => { const adminOnly = row.source === "opening-balance" ? " data-admin-action" : ""; return `<tr><td>${formatDate(row.date)}</td><td>${escapeHtml(row.employee_name)}</td><td>${row.type}</td><td>${row.base === null ? "-" : rupiah(row.base)}</td><td>${row.bonus === null ? "-" : rupiah(row.bonus)}</td><td class="${row.total < 0 ? "negative" : "positive"}">${row.total < 0 ? "− " : ""}${rupiah(Math.abs(row.total))}</td><td>${escapeHtml(row.notes || "-")}</td><td><div class="button-row"><button class="button edit small" data-action="edit-${row.source}" data-id="${row.id}"${adminOnly}>Edit</button><button class="button danger small" data-action="delete-${row.source}" data-id="${row.id}"${adminOnly}>Hapus</button></div></td></tr>`; }).join("") : '<tr><td colspan="8" class="empty">Data tidak ditemukan.</td></tr>';
   }
 
   function renderExpenses() {
@@ -540,6 +554,9 @@
       if (action === "delete-salary") await deleteSalary(id);
       if (action === "edit-withdrawal") await editWithdrawal(id);
       if (action === "delete-withdrawal") await deleteDatedRecord("salary_withdrawals", id, "Riwayat pengambilan gaji", state.withdrawals, "withdrawal_date");
+      if (action === "add-opening-balance") await addOpeningBalance();
+      if (action === "edit-opening-balance") await editOpeningBalance(id);
+      if (action === "delete-opening-balance") await deleteOpeningBalance(id);
       if (action === "add-expense") await addExpenseQuick();
       if (action === "edit-expense") await editExpense(id);
       if (action === "delete-expense") await deleteExpense(id);
@@ -792,6 +809,54 @@
     toast("Pengambilan gaji diperbarui."); await loadData();
   }
 
+  function validateOpeningBalance(data) {
+    const priorSalary = num(data.prior_salary), priorBonus = num(data.prior_bonus), priorWithdrawn = num(data.prior_withdrawn);
+    if (priorSalary < 0 || priorBonus < 0 || priorWithdrawn < 0) throw new Error("Nominal saldo awal tidak boleh negatif.");
+    if (priorWithdrawn > priorSalary + priorBonus) throw new Error("Total yang sudah diambil tidak boleh melebihi hak gaji dan bonus lama.");
+    return { priorSalary, priorBonus, priorWithdrawn };
+  }
+
+  async function addOpeningBalance() {
+    if (!canManageMaster()) throw new Error("Hanya Admin atau Superadmin yang dapat mengatur saldo awal gaji.");
+    const used = new Set(state.openingBalances.map(row => row.employee_id));
+    const available = state.employees.filter(row => !used.has(row.id));
+    if (!available.length) return toast("Semua karyawan sudah memiliki saldo awal.", "error");
+    const data = await openFormModal("Tambah saldo awal gaji", [
+      { name: "employee_id", label: "Karyawan", type: "select", required: true, options: available.map(row => ({ value: row.id, label: row.name })) },
+      { name: "effective_date", label: "Tanggal efektif", type: "date", value: "2026-09-08", required: true },
+      { name: "prior_salary", label: "Total hak gaji lama", type: "number", min: 0, value: 0, required: true },
+      { name: "prior_bonus", label: "Total bonus lama", type: "number", min: 0, value: 0, required: true },
+      { name: "prior_withdrawn", label: "Total sudah diambil", type: "number", min: 0, value: 0, required: true },
+      { name: "notes", label: "Catatan sumber data", type: "textarea", placeholder: "Contoh: Rekap buku gaji sebelum sistem", full: true }
+    ], "Simpan saldo awal");
+    if (!data) return;
+    const employee = available.find(row => row.id === data.employee_id);
+    const values = validateOpeningBalance(data);
+    assertResult(await db.from("salary_opening_balances").insert({ employee_id: employee.id, employee_name: employee.name, effective_date: data.effective_date, prior_salary: values.priorSalary, prior_bonus: values.priorBonus, prior_withdrawn: values.priorWithdrawn, notes: data.notes.trim(), updated_at: new Date().toISOString() }));
+    toast("Saldo awal gaji berhasil dicatat."); await loadData();
+  }
+
+  async function editOpeningBalance(id) {
+    if (!canManageMaster()) throw new Error("Hanya Admin atau Superadmin yang dapat mengatur saldo awal gaji.");
+    const row = state.openingBalances.find(item => item.id === id); if (!row) return;
+    const data = await openFormModal(`Edit saldo awal ${row.employee_name}`, [
+      { name: "effective_date", label: "Tanggal efektif", type: "date", value: row.effective_date, required: true },
+      { name: "prior_salary", label: "Total hak gaji lama", type: "number", min: 0, value: row.prior_salary, required: true },
+      { name: "prior_bonus", label: "Total bonus lama", type: "number", min: 0, value: row.prior_bonus, required: true },
+      { name: "prior_withdrawn", label: "Total sudah diambil", type: "number", min: 0, value: row.prior_withdrawn, required: true },
+      { name: "notes", label: "Catatan sumber data", type: "textarea", value: row.notes || "", full: true }
+    ]);
+    if (!data) return;
+    const values = validateOpeningBalance(data);
+    assertResult(await db.from("salary_opening_balances").update({ effective_date: data.effective_date, prior_salary: values.priorSalary, prior_bonus: values.priorBonus, prior_withdrawn: values.priorWithdrawn, notes: data.notes.trim(), updated_at: new Date().toISOString() }).eq("id", id));
+    toast("Saldo awal gaji diperbarui."); await loadData();
+  }
+
+  async function deleteOpeningBalance(id) {
+    if (!canManageMaster()) throw new Error("Hanya Admin atau Superadmin yang dapat menghapus saldo awal gaji.");
+    await deleteRecord("salary_opening_balances", id, "Saldo awal gaji");
+  }
+
   async function saveExpense(event) {
     event.preventDefault();
     ensureUnlocked();
@@ -1002,7 +1067,7 @@
   }
 
   function backupData() {
-    const backup = { exported_at: new Date().toISOString(), settings: state.settings, employees: state.employees, imports: state.imports, products: state.products, salaries: state.salaries, salary_withdrawals: state.withdrawals, expenses: state.expenses, allocation_rules: state.rules, daily_reports: state.reports, monthly_closings: state.monthlyClosings, allocation_withdrawals: state.allocationWithdrawals, cash_reconciliations: state.cash, expense_categories: state.categories };
+    const backup = { exported_at: new Date().toISOString(), settings: state.settings, employees: state.employees, imports: state.imports, products: state.products, salaries: state.salaries, salary_opening_balances: state.openingBalances, salary_withdrawals: state.withdrawals, expenses: state.expenses, allocation_rules: state.rules, daily_reports: state.reports, monthly_closings: state.monthlyClosings, allocation_withdrawals: state.allocationWithdrawals, cash_reconciliations: state.cash, expense_categories: state.categories };
     downloadBlob(`Backup-UD-Fikri-${localDate()}.json`, JSON.stringify(backup, null, 2), "application/json");
   }
 
