@@ -640,6 +640,10 @@
           return;
         }
         if (lower.includes("ongkos kirim")) { shipping += num(row[column("penjualan")]); return; }
+        // Griyo POS menampilkan baris ringkasan "Diskon" dengan nilai penjualan
+        // negatif. Nilai diskon sudah tercatat pada kolom Diskon setiap produk,
+        // sehingga baris ini bukan produk dan tidak boleh mengurangi omzet lagi.
+        if (lower === "diskon") return;
         const sales = num(row[column("penjualan")]);
         const productItems = num(row[column("item")]);
         const profit = num(row[column("laba")]);
