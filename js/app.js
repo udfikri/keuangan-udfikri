@@ -112,6 +112,15 @@
     });
   }
 
+  function paymentSummary(imported = currentImport(), values = null) {
+    const turnover = num(imported?.source_total_sales) || num(imported?.product_sales) + num(imported?.shipping);
+    const cash = num(values?.cash ?? imported?.payment_cash);
+    const transfer = num(values?.transfer ?? imported?.payment_transfer);
+    const qris = num(values?.qris ?? imported?.payment_qris);
+    const total = cash + transfer + qris;
+    return { turnover, cash, transfer, qris, total, difference: turnover - total, notes: String(values?.notes ?? imported?.payment_notes ?? "").trim(), recorded: Boolean(values || imported?.payment_recorded) };
+  }
+
   function calculation() {
     const imported = currentImport();
     const salaries = currentSalaries();
@@ -257,15 +266,15 @@
       ? summary.allocations.filter(row => ["fixed", "percent"].includes(row.type)).map(row => `<div class="split-row"><span>${escapeHtml(row.name)}${row.type === "percent" ? ` <small>(${num(row.value)}%)</small>` : ""}</span><strong class="${row.target === "owner" ? "positive" : ""}">${rupiah(row.amount)}</strong></div>`).join("")
       : '<div class="empty">Belum ada aturan alokasi aktif.</div>';
     const history = state.reports.length
-      ? state.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.profit_to_share)}</td><td><strong>${rupiah(row.owner_result)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="view-report" data-id="${row.id}">Lihat detail</button><button class="button danger small" data-action="delete-report" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
-      : '<tr><td colspan="9" class="empty">Belum ada riwayat tutup buku.</td></tr>';
+      ? state.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.profit_to_share)}</td><td><strong>${rupiah(num(row.fixed_allocations) + num(row.percentage_allocations))}</strong></td><td><strong>${rupiah(row.owner_result)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="view-report" data-id="${row.id}">Lihat detail</button><button class="button danger small" data-action="delete-report" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
+      : '<tr><td colspan="10" class="empty">Belum ada riwayat tutup buku.</td></tr>';
     return `
       <div class="page-head"><div><h3>Ringkasan ${formatDate(currentDate())}</h3><p>Posisi penjualan dan pembagian laba tanggal aktif.</p></div><button class="button primary" data-go="sales">Import penjualan</button></div>
       <section class="grid metric-grid">
         ${metric("Penjualan produk", rupiah(summary.productSales))}${metric("Modal barang", rupiah(summary.capital))}
         ${metric("Laba kotor", rupiah(summary.grossProfit), "positive")}${metric("Gaji & bonus", rupiah(summary.salary), "negative")}
         ${metric("Semua pengeluaran", rupiah(summary.expenses), "negative")}${metric("Sisa laba untuk alokasi", rupiah(summary.profitToShare), "positive")}
-        ${metric("Hasil pemilik", rupiah(summary.ownerResult), "positive")}${metric("Item terjual", summary.items.toLocaleString("id-ID"))}${summary.deficit > 0 ? metric("Defisit hari ini", `− ${rupiah(summary.deficit)}`, "negative") : ""}
+        ${metric("Total alokasi", rupiah(summary.fixedAllocations + summary.percentageAllocations))}${metric("Hasil pemilik", rupiah(summary.ownerResult), "positive")}${metric("Item terjual", summary.items.toLocaleString("id-ID"))}${summary.deficit > 0 ? metric("Defisit hari ini", `− ${rupiah(summary.deficit)}`, "negative") : ""}
       </section>
       <section class="grid section-gap dashboard-detail-grid">
         <article class="card detail-card"><h4>Rincian Gaji & Bonus</h4>${salaryDetails}<div class="detail-total"><span>Total gaji & bonus</span><strong>${rupiah(summary.salary)}</strong></div></article>
@@ -279,7 +288,7 @@
           <div class="split-row"><span>Sisa laba untuk alokasi</span><strong class="positive">${rupiah(summary.profitToShare)}</strong></div>
         </article>
       </section>
-      <section class="card section-gap"><h4>Riwayat tutup buku</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Dasar alokasi</th><th>Pemilik</th><th>Aksi</th></tr></thead><tbody>${history}</tbody></table></div></section>`;
+      <section class="card section-gap"><h4>Riwayat tutup buku</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Dasar alokasi</th><th>Total alokasi</th><th>Pemilik</th><th>Aksi</th></tr></thead><tbody>${history}</tbody></table></div></section>`;
   }
 
   function renderSales() {
@@ -289,6 +298,7 @@
     const monthlyLocked = isMonthLocked(currentDate().slice(0, 7));
     const products = state.products.filter(row => row.report_date === currentDate());
     const summary = calculation();
+    const payment = paymentSummary(imported);
     const productRows = products.length
       ? products.map(row => `<tr data-product-row="${row.id}" data-sales="${num(row.sales)}"><td>${escapeHtml(row.product)}</td><td>${rupiah(row.sales)}</td><td class="item-column"><input class="item-input" data-id="${row.id}" type="number" step="0.01" min="0" value="${num(row.items)}"></td><td><input class="unit-capital-input" data-id="${row.id}" type="number" step="0.0001" min="0" value="${num(row.unit_capital)}"></td><td><span class="live-profit">${rupiah(row.profit)}</span></td><td class="capital-cell"><strong class="live-capital">${rupiah(row.capital)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-product" data-id="${row.id}">Edit</button><button class="button secondary small" data-action="save-item" data-id="${row.id}">Simpan hitungan</button><button class="button danger small" data-action="delete-product" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
       : '<tr><td colspan="7" class="empty">Belum ada produk pada tanggal ini.</td></tr>';
@@ -317,6 +327,7 @@
         <article class="card"><div class="section-title-row"><h4>Gaji & bonus yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-salary">Tambah</button><button class="button edit small" data-go="salary">Riwayat gaji</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${salaryDeductions}</tbody></table></div></article>
         <article class="card"><div class="section-title-row"><h4>Pengeluaran yang dipotong</h4><div class="button-row"><button class="button primary small" data-action="add-expense">Tambah</button><button class="button edit small" data-go="expenses">Riwayat pengeluaran</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${expenseDeductions}</tbody></table></div></article>
       </section>
+      <section class="card section-gap"><div class="section-title-row"><div><h4>Rincian pembayaran omzet</h4><p class="muted employee-section-copy">Pisahkan penerimaan tunai, transfer, dan QRIS. Selisih tidak menghalangi tutup buku, tetapi wajib diberi catatan.</p></div></div>${imported ? `<form id="paymentForm"><div class="payment-grid"><div class="field"><label>Omzet menurut laporan</label><input id="paymentTurnover" type="number" value="${payment.turnover}" readonly></div><div class="field"><label>Pembayaran tunai</label><input id="paymentCash" class="payment-input" type="number" min="0" value="${payment.cash}" required></div><div class="field"><label>Transfer</label><input id="paymentTransfer" class="payment-input" type="number" min="0" value="${payment.transfer}" required></div><div class="field"><label>QRIS</label><input id="paymentQris" class="payment-input" type="number" min="0" value="${payment.qris}" required></div></div><div class="payment-summary"><div><span>Total pembayaran</span><strong id="paymentTotal">${rupiah(payment.total)}</strong></div><div><span>Selisih omzet</span><strong id="paymentDifference" class="${payment.difference === 0 ? "positive" : "negative"}">${payment.difference === 0 ? "Sesuai · " : ""}${rupiah(payment.difference)}</strong></div></div><div id="paymentStatus" class="notice ${payment.difference === 0 ? "info" : "danger-note"}">${payment.difference === 0 ? "Total pembayaran sudah sesuai dengan omzet." : `Terdapat selisih ${rupiah(payment.difference)}. Isi catatan sebelum menyimpan atau menutup buku.`}</div><div class="field"><label>Catatan selisih</label><input id="paymentNotes" value="${escapeHtml(payment.notes)}" placeholder="Contoh: transfer belum masuk atau koreksi pencatatan"></div><button class="button primary section-gap" type="submit" ${locked ? "disabled" : ""}>Simpan rincian pembayaran</button></form>` : '<div class="empty">Import laporan Griyo Pos terlebih dahulu.</div>'}</section>
       <section class="card section-gap"><h4>Finalisasi laporan</h4><div class="notice ${summary.deficit > 0 ? "danger-note" : "info"}"><strong>${summary.deficit > 0 ? `Defisit ${rupiah(summary.deficit)}` : `Total potongan ${rupiah(summary.salary + summary.expenses + summary.fixedAllocations)}`}</strong><br>Gaji & bonus ${rupiah(summary.salary)} + semua pengeluaran ${rupiah(summary.expenses)} + alokasi tetap ${rupiah(summary.fixedAllocations)}.</div><p class="muted">Data gaji tetap masuk Riwayat Gaji. Data pengeluaran tetap masuk Riwayat Pengeluaran.</p><button class="button success" data-action="close-book" ${imported && !locked ? "" : "disabled"}>${report ? "Perbarui dan kunci kembali" : "Simpan dan kunci tutup buku"}</button></section>`;
   }
 
@@ -415,18 +426,18 @@
     const previousMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     const previousReports = state.reports.filter(row => row.report_date.startsWith(previousMonth));
     const sales = sum(reports, "product_sales"), previousSales = sum(previousReports, "product_sales");
-    return { month, reports, sales, previousSales, change: previousSales ? (sales - previousSales) / previousSales * 100 : null, capital: sum(reports, "capital"), profit: sum(reports, "gross_profit"), salary: sum(reports, "salary"), expenses: sum(reports, "expenses"), owner: sum(reports, "owner_result") };
+    return { month, reports, sales, previousSales, change: previousSales ? (sales - previousSales) / previousSales * 100 : null, capital: sum(reports, "capital"), profit: sum(reports, "gross_profit"), salary: sum(reports, "salary"), expenses: sum(reports, "expenses"), allocation: reports.reduce((total, row) => total + num(row.fixed_allocations) + num(row.percentage_allocations), 0), owner: sum(reports, "owner_result") };
   }
 
   function expectedCashForDate(date) {
     const imported = state.imports.find(row => row.report_date === date);
     const previous = state.cash.filter(row => row.report_date < date).sort((a, b) => b.report_date.localeCompare(a.report_date))[0];
     const opening = num(previous?.actual_cash);
-    const receipts = num(imported?.source_total_sales || (num(imported?.product_sales) + num(imported?.shipping)));
+    const receipts = imported?.payment_recorded ? num(imported.payment_cash) : num(imported?.source_total_sales || (num(imported?.product_sales) + num(imported?.shipping)));
     const expenseOut = state.expenses.filter(row => row.expense_date === date).reduce((total, row) => total + num(row.amount), 0);
     const salaryOut = state.withdrawals.filter(row => row.withdrawal_date === date).reduce((total, row) => total + num(row.amount), 0);
     const allocationOut = state.allocationWithdrawals.filter(row => row.withdrawal_date === date).reduce((total, row) => total + num(row.amount), 0);
-    return { opening, receipts, expenseOut, salaryOut, allocationOut, expected: opening + receipts - expenseOut - salaryOut - allocationOut };
+    return { opening, receipts, paymentRecorded: Boolean(imported?.payment_recorded), expenseOut, salaryOut, allocationOut, expected: opening + receipts - expenseOut - salaryOut - allocationOut };
   }
 
   function allocationBalances() {
@@ -447,7 +458,7 @@
     const closing = monthClosing(month.month);
     const maxSales = Math.max(1, ...month.reports.map(row => num(row.product_sales)));
     const chart = month.reports.length ? month.reports.map(row => `<div class="bar-column"><div class="bar-value">${rupiah(row.product_sales)}</div><div class="bar" style="height:${Math.max(5, num(row.product_sales) / maxSales * 150)}px"></div><small>${String(row.report_date).slice(8,10)}</small></div>`).join("") : '<div class="empty">Belum ada laporan pada bulan ini.</div>';
-    const rows = month.reports.length ? month.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.owner_result)}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada laporan.</td></tr>';
+    const rows = month.reports.length ? month.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(num(row.fixed_allocations) + num(row.percentage_allocations))}</td><td>${rupiah(row.owner_result)}</td></tr>`).join("") : '<tr><td colspan="8" class="empty">Belum ada laporan.</td></tr>';
     const balances = allocationBalances();
     const balanceRows = balances.length ? balances.map(row => `<tr><td><strong>${escapeHtml(row.name)}</strong></td><td>${rupiah(row.earned)}</td><td>${rupiah(row.withdrawn)}</td><td><strong>${rupiah(row.balance)}</strong></td></tr>`).join("") : '<tr><td colspan="4" class="empty">Belum ada saldo alokasi.</td></tr>';
     const productMap = new Map();
@@ -463,11 +474,11 @@
     const closingRows = state.monthlyClosings.length ? state.monthlyClosings.map(row => `<tr><td>${escapeHtml(row.month_key)}</td><td><span class="pill ${row.status === "closed" ? "" : "off"}">${row.status === "closed" ? "Ditutup" : "Dibuka kembali"}</span></td><td>${row.report_count}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.owner_result)}</td><td>${escapeHtml(row.reopen_reason || "-")}</td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada tutup buku bulanan.</td></tr>';
     return `<div class="page-head"><div><h3>Laporan & Kas</h3><p>Rekap bulanan, saldo alokasi, pencocokan kas, dan backup.</p></div><label class="field"><span>Bulan laporan</span><input id="reportMonth" type="month" value="${month.month}"></label></div>
       <section class="book-status ${closing?.status === "closed" ? "locked" : "open"}"><span><strong>${closing?.status === "closed" ? `Buku ${month.month} sudah dikunci` : closing ? `Buku ${month.month} dibuka kembali` : `Buku ${month.month} belum ditutup`}</strong><small>${closing?.status === "closed" ? "Seluruh tanggal dalam bulan ini tidak dapat diubah." : `${month.reports.length} laporan harian siap diperiksa.`}</small></span><div class="button-row">${closing?.status === "closed" ? '<button class="button danger" data-action="reopen-month" data-admin-action>Buka bulan</button>' : '<button class="button success" data-action="close-month" data-admin-action>Tutup dan kunci bulan</button>'}</div></section>
-      <section class="grid metric-grid">${metric("Penjualan", rupiah(month.sales))}${metric("Modal", rupiah(month.capital))}${metric("Laba kotor", rupiah(month.profit), "positive")}${metric("Gaji", rupiah(month.salary), "negative")}${metric("Pengeluaran", rupiah(month.expenses), "negative")}${metric("Hasil pemilik", rupiah(month.owner), "positive")}${metric("Dibanding bulan lalu", month.change === null ? "Belum ada data" : `${month.change >= 0 ? "+" : ""}${month.change.toFixed(1)}%`, month.change !== null && month.change >= 0 ? "positive" : "negative")}</section>
+      <section class="grid metric-grid">${metric("Penjualan", rupiah(month.sales))}${metric("Modal", rupiah(month.capital))}${metric("Laba kotor", rupiah(month.profit), "positive")}${metric("Gaji", rupiah(month.salary), "negative")}${metric("Pengeluaran", rupiah(month.expenses), "negative")}${metric("Total alokasi", rupiah(month.allocation))}${metric("Hasil pemilik", rupiah(month.owner), "positive")}${metric("Dibanding bulan lalu", month.change === null ? "Belum ada data" : `${month.change >= 0 ? "+" : ""}${month.change.toFixed(1)}%`, month.change !== null && month.change >= 0 ? "positive" : "negative")}</section>
       <section class="card"><div class="section-title-row"><h4>Grafik omzet harian</h4><div class="button-row"><button class="button primary small" data-action="export-excel">Export Excel</button><button class="button secondary small" data-action="print-report">Cetak / PDF</button><button class="button ghost small" data-action="backup-data">Backup data</button></div></div><div class="bar-chart">${chart}</div></section>
-      <section class="card section-gap"><h4>Rekap bulan terpilih</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Pemilik</th></tr></thead><tbody>${rows}</tbody></table></div></section>
+      <section class="card section-gap"><h4>Rekap bulan terpilih</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Total alokasi</th><th>Pemilik</th></tr></thead><tbody>${rows}</tbody></table></div></section>
       <section class="card section-gap"><h4>10 produk terlaris</h4><div class="table-wrap"><table><thead><tr><th>Peringkat</th><th>Produk</th><th>Item</th><th>Penjualan</th><th>Laba</th></tr></thead><tbody>${topRows}</tbody></table></div></section>
-      <section class="grid two section-gap"><form id="cashForm" class="card"><h4>Pencocokan kas ${formatDate(currentDate())}</h4><div class="notice info">Saldo awal ${rupiah(cashPosition.opening)} + penerimaan ${rupiah(cashPosition.receipts)} − pengeluaran ${rupiah(cashPosition.expenseOut)} − pengambilan gaji ${rupiah(cashPosition.salaryOut)} − pengambilan alokasi ${rupiah(cashPosition.allocationOut)}.</div><div class="form-grid"><div class="field"><label>Kas menurut sistem</label><input id="expectedCash" type="number" value="${expected}" readonly></div><div class="field"><label>Kas yang dihitung</label><input id="actualCash" type="number" min="0" value="${num(currentCash?.actual_cash)}" required></div><div class="field full"><label>Catatan selisih</label><input id="cashNotes" value="${escapeHtml(currentCash?.notes || "")}" placeholder="Wajib jika ada selisih"></div></div><button class="button primary section-gap" type="submit">Simpan pencocokan</button></form>
+      <section class="grid two section-gap"><form id="cashForm" class="card"><h4>Pencocokan kas ${formatDate(currentDate())}</h4><div class="notice ${cashPosition.paymentRecorded ? "info" : ""}">${cashPosition.paymentRecorded ? "Menggunakan pembayaran tunai" : "Rincian pembayaran belum disimpan; sementara seluruh omzet dianggap tunai"}: saldo awal ${rupiah(cashPosition.opening)} + penerimaan tunai ${rupiah(cashPosition.receipts)} − pengeluaran ${rupiah(cashPosition.expenseOut)} − pengambilan gaji ${rupiah(cashPosition.salaryOut)} − pengambilan alokasi ${rupiah(cashPosition.allocationOut)}.</div><div class="form-grid"><div class="field"><label>Kas menurut sistem</label><input id="expectedCash" type="number" value="${expected}" readonly></div><div class="field"><label>Kas yang dihitung</label><input id="actualCash" type="number" min="0" value="${num(currentCash?.actual_cash)}" required></div><div class="field full"><label>Catatan selisih</label><input id="cashNotes" value="${escapeHtml(currentCash?.notes || "")}" placeholder="Wajib jika ada selisih"></div></div><button class="button primary section-gap" type="submit">Simpan pencocokan</button></form>
       <form id="allocationWithdrawalForm" class="card"><h4>Ambil dana alokasi</h4><div class="form-grid"><div class="field"><label>Alokasi</label><select id="allocationRule" required>${ruleOptions}</select></div><div class="field"><label>Nominal</label><input id="allocationAmount" type="number" min="1" required></div><div class="field full"><label>Catatan</label><input id="allocationNotes" required placeholder="Tujuan pengambilan"></div></div><button class="button primary section-gap" type="submit">Simpan pengambilan</button></form></section>
       <section class="card section-gap"><h4>Saldo alokasi</h4><div class="table-wrap"><table><thead><tr><th>Alokasi</th><th>Terkumpul</th><th>Diambil</th><th>Saldo</th></tr></thead><tbody>${balanceRows}</tbody></table></div></section>
       <section class="card section-gap"><h4>Riwayat pengambilan alokasi</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Alokasi</th><th>Nominal</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody>${withdrawalRows}</tbody></table></div></section>
@@ -501,6 +512,7 @@
   function bindPageEvents() {
     $("#mainContent").onclick = handleAction;
     if ($("#importForm")) $("#importForm").onsubmit = importReport;
+    if ($("#paymentForm")) $("#paymentForm").onsubmit = savePayments;
     if ($("#griyoFile")) $("#griyoFile").onchange = parseGriyoFile;
     if ($("#salaryForm")) $("#salaryForm").onsubmit = saveSalaries;
     if ($("#withdrawalForm")) $("#withdrawalForm").onsubmit = saveWithdrawal;
@@ -514,6 +526,7 @@
     if ($("#mySalaryMonth")) $("#mySalaryMonth").onchange = event => { state.salaryMonth = event.target.value || localDate().slice(0, 7); renderPage(); };
     $$(".salary-present, .salary-base, .salary-bonus").forEach(input => input.oninput = updateSalaryTotal);
     $$(".item-input, .unit-capital-input").forEach(input => input.oninput = updateProductCostPreview);
+    $$(".payment-input").forEach(input => input.oninput = updatePaymentPreview);
     if ($("#salarySearch")) $("#salarySearch").oninput = filterSalaryHistory;
     if ($("#salarySort")) $("#salarySort").onchange = filterSalaryHistory;
   }
@@ -531,6 +544,25 @@
     const capital = items * unitCapital;
     $(".live-capital", row).textContent = rupiah(capital);
     $(".live-profit", row).textContent = rupiah(num(row.dataset.sales) - capital);
+  }
+  function paymentFormValues() {
+    if (!$("#paymentForm")) return null;
+    return { cash: num($("#paymentCash").value), transfer: num($("#paymentTransfer").value), qris: num($("#paymentQris").value), notes: $("#paymentNotes").value.trim() };
+  }
+  function validatePayment(values, imported = currentImport()) {
+    if (!values || [values.cash, values.transfer, values.qris].some(value => value < 0)) throw new Error("Nominal pembayaran tidak valid.");
+    const payment = paymentSummary(imported, values);
+    if (Math.abs(payment.difference) > .01 && !payment.notes) throw new Error("Catatan wajib diisi jika total pembayaran berbeda dari omzet.");
+    return payment;
+  }
+  function updatePaymentPreview() {
+    const values = paymentFormValues(); if (!values) return;
+    const payment = paymentSummary(currentImport(), values);
+    $("#paymentTotal").textContent = rupiah(payment.total);
+    $("#paymentDifference").textContent = `${Math.abs(payment.difference) <= .01 ? "Sesuai · " : ""}${rupiah(payment.difference)}`;
+    $("#paymentDifference").className = Math.abs(payment.difference) <= .01 ? "positive" : "negative";
+    $("#paymentStatus").className = `notice ${Math.abs(payment.difference) <= .01 ? "info" : "danger-note"}`;
+    $("#paymentStatus").textContent = Math.abs(payment.difference) <= .01 ? "Total pembayaran sudah sesuai dengan omzet." : `Terdapat selisih ${rupiah(payment.difference)}. Isi catatan sebelum menyimpan atau menutup buku.`;
   }
   function filterSalaryHistory() {
     $("#salaryHistory").innerHTML = salaryHistoryRows($("#salarySearch").value.trim(), $("#salarySort").value);
@@ -658,6 +690,16 @@
       toast("Laporan Griyo Pos berhasil diimpor.");
       await loadData();
     } catch (error) { toast(error.message, "error"); } finally { setLoading(false); }
+  }
+
+  async function savePayments(event) {
+    event.preventDefault();
+    ensureUnlocked();
+    const imported = currentImport(); if (!imported) throw new Error("Import laporan terlebih dahulu.");
+    const payment = validatePayment(paymentFormValues(), imported);
+    assertResult(await db.from("sales_imports").update({ payment_cash: payment.cash, payment_transfer: payment.transfer, payment_qris: payment.qris, payment_total: payment.total, payment_difference: payment.difference, payment_notes: payment.notes || null, payment_recorded: true }).eq("id", imported.id));
+    toast(payment.difference === 0 ? "Rincian pembayaran sesuai dan tersimpan." : "Rincian pembayaran dengan selisih berhasil disimpan.");
+    await loadData();
   }
 
   async function saveItem(id) {
@@ -1040,7 +1082,7 @@
     const inMonth = value => String(value || "").startsWith(month);
     const workbook = XLSX.utils.book_new();
     const add = (name, rows) => XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows.length ? rows : [{ Keterangan: "Tidak ada data" }]), name);
-    add("Ringkasan", reports.map(row => ({ Tanggal: row.report_date, Penjualan: num(row.product_sales), Modal: num(row.capital), Laba_Kotor: num(row.gross_profit), Gaji_Bonus: num(row.salary), Pengeluaran: num(row.expenses), Dasar_Alokasi: num(row.profit_to_share), Pemilik: num(row.owner_result) })));
+    add("Ringkasan", reports.map(row => ({ Tanggal: row.report_date, Penjualan: num(row.product_sales), Modal: num(row.capital), Laba_Kotor: num(row.gross_profit), Gaji_Bonus: num(row.salary), Pengeluaran: num(row.expenses), Dasar_Alokasi: num(row.profit_to_share), Total_Alokasi: num(row.fixed_allocations) + num(row.percentage_allocations), Tunai: num(row.payment_cash), Transfer: num(row.payment_transfer), QRIS: num(row.payment_qris), Selisih_Pembayaran: num(row.payment_difference), Pemilik: num(row.owner_result) })));
     add("Produk", state.products.filter(row => inMonth(row.report_date)).map(row => ({ Tanggal: row.report_date, Produk: row.product, Penjualan: num(row.sales), Item: num(row.items), Modal_Satuan: num(row.unit_capital), Modal_Total: num(row.capital), Laba: num(row.profit) })));
     add("Gaji", state.salaries.filter(row => inMonth(row.salary_date)).map(row => ({ Tanggal: row.salary_date, Karyawan: row.employee_name, Gaji_Pokok: num(row.base_salary), Bonus: num(row.bonus), Total: num(row.total), Catatan: row.notes || "" })));
     add("Pengeluaran", state.expenses.filter(row => inMonth(row.expense_date)).map(row => ({ Tanggal: row.expense_date, Jenis: row.expense_type, Karyawan: row.employee_name || "", Kategori: row.category, Nominal: num(row.amount), Catatan: row.description || "" })));
@@ -1049,10 +1091,10 @@
 
   function printMonthlyReport() {
     const month = monthlyData();
-    const rows = month.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.owner_result)}</td></tr>`).join("");
+    const rows = month.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(num(row.fixed_allocations) + num(row.percentage_allocations))}</td><td>${rupiah(row.owner_result)}</td></tr>`).join("");
     const popup = window.open("", "_blank");
     if (!popup) throw new Error("Izinkan pop-up browser untuk mencetak laporan.");
-    popup.document.write(`<html><head><title>Laporan UD Fikri ${month.month}</title><style>body{font-family:Arial;padding:28px;color:#163738}h1{margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:9px;border:1px solid #ccd;text-align:left}th{background:#e5f4f0}.summary{display:flex;gap:25px;flex-wrap:wrap;margin-top:18px}.summary b{display:block;font-size:18px}@media print{button{display:none}}</style></head><body><h1>UD Fikri</h1><div>Laporan bulan ${month.month}</div><div class="summary"><span>Penjualan<b>${rupiah(month.sales)}</b></span><span>Modal<b>${rupiah(month.capital)}</b></span><span>Laba<b>${rupiah(month.profit)}</b></span><span>Pemilik<b>${rupiah(month.owner)}</b></span></div><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Pemilik</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`);
+    popup.document.write(`<html><head><title>Laporan UD Fikri ${month.month}</title><style>body{font-family:Arial;padding:28px;color:#163738}h1{margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{padding:9px;border:1px solid #ccd;text-align:left}th{background:#e5f4f0}.summary{display:flex;gap:25px;flex-wrap:wrap;margin-top:18px}.summary b{display:block;font-size:18px}@media print{button{display:none}}</style></head><body><h1>UD Fikri</h1><div>Laporan bulan ${month.month}</div><div class="summary"><span>Penjualan<b>${rupiah(month.sales)}</b></span><span>Modal<b>${rupiah(month.capital)}</b></span><span>Laba<b>${rupiah(month.profit)}</b></span><span>Total alokasi<b>${rupiah(month.allocation)}</b></span><span>Pemilik<b>${rupiah(month.owner)}</b></span></div><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Total alokasi</th><th>Pemilik</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`);
     popup.document.close();
   }
 
@@ -1082,14 +1124,16 @@
     const expenses = state.expenses.filter(row => row.expense_date === report.report_date);
     const cash = state.cash.find(row => row.report_date === report.report_date);
     const allocations = (Array.isArray(report.allocation_json) ? report.allocation_json : []).filter(row => ["fixed", "percent"].includes(row.type));
+    const payment = paymentSummary(report);
     const productRows = products.map(row => `<tr><td>${escapeHtml(row.product)}</td><td>${row.items}</td><td>${rupiah(row.unit_capital)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.sales)}</td><td>${rupiah(row.profit)}</td></tr>`).join("") || '<tr><td colspan="6">Tidak ada produk.</td></tr>';
     const salaryRows = salaries.map(row => `<tr><td>${escapeHtml(row.employee_name)}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(row.bonus)}</td><td>${rupiah(row.total)}</td><td>${escapeHtml(row.notes || "-")}</td></tr>`).join("") || '<tr><td colspan="5">Tidak ada gaji.</td></tr>';
     const expenseRows = expenses.map(row => `<tr><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td></tr>`).join("") || '<tr><td colspan="4">Tidak ada pengeluaran.</td></tr>';
     const allocationRows = allocations.map(row => `<tr><td>${escapeHtml(row.name)}</td><td>${row.type === "percent" ? `${num(row.value)}%` : "Nominal"}</td><td>${rupiah(row.amount)}</td></tr>`).join("") || '<tr><td colspan="3">Tidak ada alokasi.</td></tr>';
     return `<div class="detail-actions">${printMode ? "" : `<button class="button secondary" data-action="print-daily-report" data-id="${report.id}">Cetak / PDF</button>`}</div>
-      <div class="detail-summary"><div><span>Penjualan</span><strong>${rupiah(report.product_sales)}</strong></div><div><span>Modal</span><strong>${rupiah(report.capital)}</strong></div><div><span>Laba</span><strong>${rupiah(report.gross_profit)}</strong></div><div><span>Pemilik</span><strong>${rupiah(report.owner_result)}</strong></div></div>
+      <div class="detail-summary"><div><span>Penjualan</span><strong>${rupiah(report.product_sales)}</strong></div><div><span>Modal</span><strong>${rupiah(report.capital)}</strong></div><div><span>Laba</span><strong>${rupiah(report.gross_profit)}</strong></div><div><span>Total alokasi</span><strong>${rupiah(num(report.fixed_allocations) + num(report.percentage_allocations))}</strong></div><div><span>Pemilik</span><strong>${rupiah(report.owner_result)}</strong></div></div>
       <div class="detail-meta"><span><b>Status:</b> ${report.book_status === "closed" ? "Ditutup" : "Dibuka kembali"}</span><span><b>Ditutup oleh:</b> ${escapeHtml(userName(report.closed_by))}</span><span><b>Waktu tutup:</b> ${formatTimestamp(report.closed_at)}</span>${report.reopen_reason ? `<span><b>Alasan dibuka:</b> ${escapeHtml(report.reopen_reason)}</span><span><b>Dibuka oleh:</b> ${escapeHtml(userName(report.reopened_by))}</span>` : ""}</div>
       <h4>Produk terjual</h4><div class="table-wrap"><table><thead><tr><th>Produk</th><th>Item</th><th>Modal/satuan</th><th>Modal total</th><th>Penjualan</th><th>Laba</th></tr></thead><tbody>${productRows}</tbody></table></div>
+      <h4>Rincian pembayaran omzet</h4><div class="detail-meta"><span><b>Omzet:</b> ${rupiah(payment.turnover)}</span><span><b>Tunai:</b> ${rupiah(payment.cash)}</span><span><b>Transfer:</b> ${rupiah(payment.transfer)}</span><span><b>QRIS:</b> ${rupiah(payment.qris)}</span><span><b>Total pembayaran:</b> ${rupiah(payment.total)}</span><span><b>Selisih:</b> ${rupiah(payment.difference)}</span><span><b>Catatan:</b> ${escapeHtml(payment.notes || (report.payment_recorded ? "-" : "Belum dicatat"))}</span></div>
       <div class="grid two section-gap"><div><h4>Gaji & bonus</h4><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Pokok</th><th>Bonus</th><th>Total</th><th>Catatan</th></tr></thead><tbody>${salaryRows}</tbody></table></div></div><div><h4>Pengeluaran</h4><div class="table-wrap"><table><thead><tr><th>Kategori</th><th>Karyawan</th><th>Catatan</th><th>Total</th></tr></thead><tbody>${expenseRows}</tbody></table></div></div></div>
       <div class="grid two section-gap"><div><h4>Alokasi</h4><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Jenis</th><th>Nominal</th></tr></thead><tbody>${allocationRows}</tbody></table></div></div><div><h4>Pencocokan kas</h4><div class="detail-meta"><span><b>Menurut sistem:</b> ${rupiah(cash?.expected_cash)}</span><span><b>Kas aktual:</b> ${rupiah(cash?.actual_cash)}</span><span><b>Selisih:</b> ${rupiah(cash?.difference)}</span><span><b>Catatan:</b> ${escapeHtml(cash?.notes || "-")}</span></div></div></div>`;
   }
@@ -1140,13 +1184,18 @@
     const imported = currentImport();
     if (!imported) throw new Error("Import laporan Griyo Pos terlebih dahulu.");
     const summary = calculation();
+    const values = paymentFormValues() || { cash: imported.payment_cash, transfer: imported.payment_transfer, qris: imported.payment_qris, notes: imported.payment_notes };
+    const payment = validatePayment(values, imported);
+    assertResult(await db.from("sales_imports").update({ payment_cash: payment.cash, payment_transfer: payment.transfer, payment_qris: payment.qris, payment_total: payment.total, payment_difference: payment.difference, payment_notes: payment.notes || null, payment_recorded: true }).eq("id", imported.id));
     assertResult(await db.from("daily_reports").upsert({
       report_date: currentDate(), file_name: imported.file_name, product_sales: summary.productSales,
       capital: summary.capital, gross_profit: summary.grossProfit, transactions: summary.transactions,
       items: summary.items, shipping: summary.shipping, salary: summary.salary, expenses: summary.expenses,
       fixed_allocations: summary.fixedAllocations, profit_to_share: summary.profitToShare,
       percentage_allocations: summary.percentageAllocations, owner_result: summary.ownerResult,
-      allocation_json: summary.allocations, book_status: "closed", closed_at: new Date().toISOString(), closed_by: state.profile?.id || null, reopened_at: null, saved_at: new Date().toISOString()
+      allocation_json: summary.allocations, payment_cash: payment.cash, payment_transfer: payment.transfer,
+      payment_qris: payment.qris, payment_total: payment.total, payment_difference: payment.difference,
+      payment_notes: payment.notes || null, payment_recorded: true, book_status: "closed", closed_at: new Date().toISOString(), closed_by: state.profile?.id || null, reopened_at: null, saved_at: new Date().toISOString()
     }, { onConflict: "report_date" }));
     toast("Tutup buku harian tersimpan."); await loadData();
   }
