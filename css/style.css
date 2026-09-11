@@ -135,6 +135,11 @@ tr:last-child td { border-bottom: 0; }
 .employee-head-actions input { background: #fff; }
 .employee-section-copy { margin: .25rem 0 0; font-size: .82rem; }
 .employee-summary-grid .card { min-height: 13rem; }
+.payment-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; }
+.payment-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; margin: 1rem 0; }
+.payment-summary > div { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: .75rem; background: #fbfdfd; }
+.payment-summary span { color: var(--muted); font-size: .8rem; font-weight: 800; }
+.payment-summary strong { white-space: nowrap; }
 
 .toast { position: fixed; right: 1.2rem; bottom: 1.2rem; z-index: 60; max-width: min(24rem, calc(100% - 2rem)); padding: .9rem 1rem; border-radius: .75rem; color: #fff; background: #214b48; box-shadow: 0 15px 45px rgba(0,0,0,.2); transform: translateY(6rem); opacity: 0; transition: .25s; }
 .toast.show { transform: translateY(0); opacity: 1; }
@@ -379,6 +384,7 @@ th, td { vertical-align: middle; }
   .employee-page-head { align-items: flex-start; }
   .employee-head-actions { width: 100%; }
   .employee-head-actions .field { flex: 1 1 auto; }
+  .payment-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 600px) {
@@ -396,6 +402,7 @@ th, td { vertical-align: middle; }
   .employee-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .employee-summary-grid { grid-template-columns: 1fr; }
   .employee-summary-grid .card { min-height: auto; }
+  .payment-grid, .payment-summary { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 380px) {
