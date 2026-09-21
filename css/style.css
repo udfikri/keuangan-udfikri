@@ -440,9 +440,13 @@ th, td { vertical-align: middle; }
 .table-total-row td { padding-top:.9rem; padding-bottom:.9rem; border-top:2px solid #bfd9d1; color:#153f40; background:#eef7f4; }
 .table-total-row td:first-child { text-align:right; font-weight:800; }
 .table-total-row strong { color:#176853; font-size:1rem; white-space:nowrap; }
+.dashboard-seven-metrics { grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; }
+.dashboard-seven-metrics .metric:last-child { grid-column:span 2; background:linear-gradient(135deg,#effaf5,#fff); border-color:#b9ddcf; }
+.dashboard-tables { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; }
+.dashboard-tables .card { min-width:0; }
 @media(max-width:1180px){.salary-entry-card{grid-template-columns:repeat(4,minmax(130px,1fr));}.salary-person{grid-column:1/-1}.salary-note{grid-column:span 2}}
-@media(max-width:900px){.salary-live-summary{grid-template-columns:repeat(3,1fr)}.salary-live-summary div:nth-child(3){border-right:0}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-summary .balance{grid-column:1/-1}}
-@media(max-width:700px){.salary-hero{align-items:flex-start;flex-direction:column}.salary-hero-date{width:100%}.salary-entry-card{grid-template-columns:1fr 1fr}.salary-person,.salary-note{grid-column:1/-1}.salary-result{grid-column:1/-1}.sticky-form-action{position:static;align-items:stretch;flex-direction:column}.sticky-form-action .button{width:100%}.salary-live-summary{grid-template-columns:1fr 1fr}.salary-live-summary div{border-right:0;border-bottom:1px solid #dce9e6}.salary-live-summary .summary-grand{grid-column:1/-1}.salary-metrics{grid-template-columns:1fr 1fr}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-pagination{align-items:flex-start;flex-direction:column}.ledger-pagination>div{max-width:100%;overflow-x:auto}}
+@media(max-width:900px){.salary-live-summary{grid-template-columns:repeat(3,1fr)}.salary-live-summary div:nth-child(3){border-right:0}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-summary .balance{grid-column:1/-1}.dashboard-seven-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:700px){.salary-hero{align-items:flex-start;flex-direction:column}.salary-hero-date{width:100%}.salary-entry-card{grid-template-columns:1fr 1fr}.salary-person,.salary-note{grid-column:1/-1}.salary-result{grid-column:1/-1}.sticky-form-action{position:static;align-items:stretch;flex-direction:column}.sticky-form-action .button{width:100%}.salary-live-summary{grid-template-columns:1fr 1fr}.salary-live-summary div{border-right:0;border-bottom:1px solid #dce9e6}.salary-live-summary .summary-grand{grid-column:1/-1}.salary-metrics{grid-template-columns:1fr 1fr}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-pagination{align-items:flex-start;flex-direction:column}.ledger-pagination>div{max-width:100%;overflow-x:auto}.dashboard-seven-metrics{grid-template-columns:1fr}.dashboard-seven-metrics .metric:last-child{grid-column:auto}}
 
 @media (max-width: 600px) {
   .salary-entry-scroll .salary-line { min-width: 700px; grid-template-columns: 7rem 4.8rem 6.7rem 5.8rem 6.8rem 8.5rem; }
