@@ -1,6 +1,6 @@
 # Sistem Hasil Penjualan UD Fikri — Web + Supabase
 
-Versi web berbasis HTML, CSS, JavaScript, dan Supabase. Versi 23 memakai halaman terpisah agar lebih mudah dipelihara dan tetap dapat dipasang di Vercel, Netlify, Cloudflare Pages, atau hosting statis lain.
+Versi web berbasis HTML, CSS, JavaScript, dan Supabase. Versi 24 memakai halaman terpisah, buku saldo gaji per karyawan, dan pembaruan cache agar perubahan langsung terbaca setelah deployment.
 
 ## Fitur
 
@@ -9,6 +9,13 @@ Versi web berbasis HTML, CSS, JavaScript, dan Supabase. Versi 23 memakai halaman
 - Perhitungan penjualan, modal, laba kotor, dan jumlah item
 - Status kehadiran, gaji pokok, tunjangan, lembur, bonus, potongan, dan hak bersih
 - Metode pembayaran serta nomor referensi pengambilan gaji
+- Lima tab penggajian: input harian, pengambilan, saldo karyawan, riwayat, dan saldo awal
+- Perhitungan otomatis setengah hari (50%), alpa, dan libur tidak dibayar
+- Ringkasan langsung sebelum gaji disimpan dan pratinjau sisa saldo pengambilan
+- Slip serta export gaji mencantumkan pokok, tambahan, potongan, status, dan metode pembayaran
+- Riwayat saldo dipisahkan melalui tab masing-masing karyawan
+- Buku saldo memakai urutan Tanggal, Keterangan, Bonus, Hak Gaji, Pengambilan, dan Total Saldo
+- Pagination riwayat menampilkan transaksi terbaru pada halaman pertama
 - Pengambilan gaji dan saldo hak gaji setiap karyawan
 - Pencarian serta pengurutan riwayat gaji berdasarkan nama
 - Pengeluaran operasional dan pengeluaran yang ditandai nama karyawan

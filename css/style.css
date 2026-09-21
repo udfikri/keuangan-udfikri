@@ -396,8 +396,47 @@ th, td { vertical-align: middle; }
 .salary-result strong { margin-top:.2rem; white-space:nowrap; }
 .sticky-form-action { display:flex; justify-content:space-between; align-items:center; gap:1rem; position:sticky; bottom:.75rem; z-index:3; margin-top:1rem; padding:.85rem 1rem; border:1px solid #dce9e6; border-radius:1rem; background:rgba(255,255,255,.94); box-shadow:0 12px 30px rgba(13,61,52,.12); backdrop-filter:blur(10px); }
 .sticky-form-action span { color:var(--muted); font-size:.82rem; }
+.salary-tabs { display:flex; gap:.35rem; margin:1rem 0; padding:.38rem; overflow-x:auto; border:1px solid #dfeae7; border-radius:1rem; background:#fff; box-shadow:0 8px 24px rgba(20,72,62,.06); }
+.salary-tab { flex:1 0 auto; padding:.72rem 1rem; border:0; border-radius:.72rem; color:#58706d; background:transparent; font-weight:800; cursor:pointer; transition:.18s ease; }
+.salary-tab:hover { color:#155f4d; background:#eff8f5; }
+.salary-tab.active { color:#fff; background:linear-gradient(135deg,#155f4d,#29916e); box-shadow:0 7px 16px rgba(25,112,86,.2); }
+.salary-panel { animation:salaryPanelIn .22s ease; }
+.salary-panel.hidden { display:none !important; }
+@keyframes salaryPanelIn { from{opacity:0;transform:translateY(5px)} to{opacity:1;transform:none} }
+.salary-live-summary { display:grid; grid-template-columns:repeat(6,minmax(120px,1fr)); gap:.65rem; margin-top:1rem; padding:1rem; border-radius:1rem; background:#f2f8f6; }
+.salary-live-summary div { padding:.65rem; border-right:1px solid #dce9e6; }
+.salary-live-summary div:last-child { border-right:0; }
+.salary-live-summary span,.salary-live-summary strong { display:block; }
+.salary-live-summary span { color:var(--muted); font-size:.7rem; font-weight:800; text-transform:uppercase; }
+.salary-live-summary strong { margin-top:.3rem; font-size:.92rem; }
+.salary-live-summary .summary-grand { color:#fff; border:0; border-radius:.75rem; background:#176853; }
+.salary-live-summary .summary-grand span { color:#bfe8d8; }
+.withdraw-balance-card { margin-top:1rem; padding:1.1rem; border-radius:1rem; background:linear-gradient(135deg,#effaf5,#e1f3ec); }
+.withdraw-balance-card > span,.withdraw-balance-card > strong { display:block; }
+.withdraw-balance-card > span { color:var(--muted); font-size:.76rem; }
+.withdraw-balance-card > strong { margin:.25rem 0 1rem; font-size:1.8rem; color:#176853; }
+.withdraw-after { display:flex; justify-content:space-between; gap:1rem; padding-top:.8rem; border-top:1px solid #c8e2d8; }
+.employee-ledger-tabs { display:flex; gap:.45rem; margin:1rem 0; padding-bottom:.2rem; overflow-x:auto; }
+.employee-ledger-tab { flex:0 0 auto; padding:.7rem 1.15rem; border:1px solid #cfe0dc; border-radius:999px; color:#476c64; background:#f8fbfa; font-weight:800; cursor:pointer; }
+.employee-ledger-tab:hover { border-color:#6fb79f; color:#176853; }
+.employee-ledger-tab.active { border-color:#176853; color:#fff; background:#176853; box-shadow:0 7px 15px rgba(23,104,83,.2); }
+.ledger-summary { display:grid; grid-template-columns:1.1fr repeat(4,1fr); gap:.7rem; margin-bottom:1rem; }
+.ledger-summary > div { padding:.85rem 1rem; border:1px solid #dfeae7; border-radius:.85rem; background:#fbfdfc; }
+.ledger-summary span,.ledger-summary strong { display:block; }
+.ledger-summary span { color:var(--muted); font-size:.68rem; font-weight:800; text-transform:uppercase; }
+.ledger-summary strong { margin-top:.3rem; }
+.ledger-summary .balance { color:#fff; border-color:#176853; background:linear-gradient(135deg,#176853,#29916e); }
+.ledger-summary .balance span { color:#c7eddf; }
+.ledger-page-size { min-width:90px; }
+.ledger-pagination { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-top:1rem; color:var(--muted); font-size:.82rem; }
+.ledger-pagination > div { display:flex; align-items:center; gap:.3rem; }
+.ledger-page { min-width:34px; height:34px; padding:0 .65rem; border:1px solid #d3e2de; border-radius:.55rem; color:#466d64; background:#fff; font-weight:700; cursor:pointer; }
+.ledger-page:hover:not(:disabled),.ledger-page.active { color:#fff; border-color:#176853; background:#176853; }
+.ledger-page:disabled { opacity:.45; cursor:not-allowed; }
+.pagination-ellipsis { padding:0 .2rem; }
 @media(max-width:1180px){.salary-entry-card{grid-template-columns:repeat(4,minmax(130px,1fr));}.salary-person{grid-column:1/-1}.salary-note{grid-column:span 2}}
-@media(max-width:700px){.salary-hero{align-items:flex-start;flex-direction:column}.salary-hero-date{width:100%}.salary-entry-card{grid-template-columns:1fr 1fr}.salary-person,.salary-note{grid-column:1/-1}.salary-result{grid-column:1/-1}.sticky-form-action{position:static;align-items:stretch;flex-direction:column}.sticky-form-action .button{width:100%}}
+@media(max-width:900px){.salary-live-summary{grid-template-columns:repeat(3,1fr)}.salary-live-summary div:nth-child(3){border-right:0}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-summary .balance{grid-column:1/-1}}
+@media(max-width:700px){.salary-hero{align-items:flex-start;flex-direction:column}.salary-hero-date{width:100%}.salary-entry-card{grid-template-columns:1fr 1fr}.salary-person,.salary-note{grid-column:1/-1}.salary-result{grid-column:1/-1}.sticky-form-action{position:static;align-items:stretch;flex-direction:column}.sticky-form-action .button{width:100%}.salary-live-summary{grid-template-columns:1fr 1fr}.salary-live-summary div{border-right:0;border-bottom:1px solid #dce9e6}.salary-live-summary .summary-grand{grid-column:1/-1}.salary-metrics{grid-template-columns:1fr 1fr}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-pagination{align-items:flex-start;flex-direction:column}.ledger-pagination>div{max-width:100%;overflow-x:auto}}
 
 @media (max-width: 600px) {
   .salary-entry-scroll .salary-line { min-width: 700px; grid-template-columns: 7rem 4.8rem 6.7rem 5.8rem 6.8rem 8.5rem; }
