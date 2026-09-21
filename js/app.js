@@ -318,7 +318,7 @@
     const productRows = products.length
       ? products.map(row => `<tr data-product-row="${row.id}" data-sales="${num(row.sales)}"><td>${escapeHtml(row.product)}</td><td>${rupiah(row.sales)}</td><td class="item-column"><input class="item-input" data-id="${row.id}" type="number" step="0.01" min="0" value="${num(row.items)}"></td><td><input class="unit-capital-input" data-id="${row.id}" type="number" step="0.0001" min="0" value="${num(row.unit_capital)}"></td><td><span class="live-profit">${rupiah(row.profit)}</span></td><td class="capital-cell"><strong class="live-capital">${rupiah(row.capital)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-product" data-id="${row.id}">Edit</button><button class="button secondary small" data-action="save-item" data-id="${row.id}">Simpan hitungan</button><button class="button danger small" data-action="delete-product" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
       : '<tr><td colspan="7" class="empty">Belum ada produk pada tanggal ini.</td></tr>';
-    const salaryDeductions = currentSalaries().length ? currentSalaries().map(row => `<tr><td>${escapeHtml(String(row.attendance_status || "hadir").replaceAll("_", " "))}</td><td>${escapeHtml(row.employee_name)}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(num(row.allowance) + num(row.overtime) + num(row.bonus))}</td><td>${rupiah(row.deduction)}</td><td><strong>${rupiah(row.total)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-salary" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-salary" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada gaji tanggal ini.</td></tr>';
+    const salaryDeductions = currentSalaries().length ? currentSalaries().map(row => `<tr><td>${escapeHtml(String(row.attendance_status || "hadir").replaceAll("_", " "))}</td><td>${escapeHtml(row.employee_name)}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(num(row.allowance) + num(row.bonus))}</td><td>${rupiah(row.deduction)}</td><td><strong>${rupiah(row.total)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-salary" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-salary" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada gaji tanggal ini.</td></tr>';
     const expenseDeductions = currentExpenses().length ? currentExpenses().map(row => `<tr><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td><strong>${rupiah(row.amount)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-expense" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-expense" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="6" class="empty">Belum ada pengeluaran tanggal ini.</td></tr>';
     return `
       <div class="page-head"><div><h3>Import laporan Griyo Pos</h3><p>Pilih file Produk Terlaris untuk menghitung penjualan, laba, dan modal.</p></div></div>
@@ -356,7 +356,7 @@
     const monthSalaries = salaries.filter(row => String(row.salary_date).startsWith(state.salaryMonth));
     const monthWithdrawals = withdrawals.filter(row => String(row.withdrawal_date).startsWith(state.salaryMonth));
     const history = [
-      ...monthSalaries.map(row => ({ date: row.salary_date, type: "Gaji harian", status: String(row.attendance_status || "hadir").replaceAll("_", " "), base: num(row.base_salary), additions: num(row.allowance) + num(row.overtime) + num(row.bonus), deduction: num(row.deduction), amount: num(row.total), notes: row.notes || "" })),
+      ...monthSalaries.map(row => ({ date: row.salary_date, type: "Gaji harian", status: String(row.attendance_status || "hadir").replaceAll("_", " "), base: num(row.base_salary), additions: num(row.allowance) + num(row.bonus), deduction: num(row.deduction), amount: num(row.total), notes: row.notes || "" })),
       ...monthWithdrawals.map(row => ({ date: row.withdrawal_date, type: "Pengambilan gaji", status: String(row.payment_method || "cash").toUpperCase(), base: null, additions: null, deduction: null, amount: -num(row.amount), notes: [row.reference_number ? `Ref: ${row.reference_number}` : "", row.notes || ""].filter(Boolean).join(" · ") })),
       ...(opening && String(opening.effective_date).startsWith(state.salaryMonth) ? [{ date: opening.effective_date, type: "Saldo awal", status: "Awal sistem", base: num(opening.prior_salary), additions: num(opening.prior_bonus), deduction: num(opening.prior_withdrawn), amount: num(opening.prior_salary) + num(opening.prior_bonus) - num(opening.prior_withdrawn), notes: opening.notes || "Catatan sebelum sistem" }] : [])
     ].sort((a, b) => b.date.localeCompare(a.date) || a.type.localeCompare(b.type));
@@ -366,7 +366,7 @@
       employee, opening, salaries, withdrawals, monthSalaries, monthWithdrawals, history,
       openingEarned, openingWithdrawn, openingBalance: openingEarned - openingWithdrawn,
       totalEarned: openingEarned + sum(salaries, "total"), totalWithdrawn: openingWithdrawn + sum(withdrawals, "amount"),
-      monthBase: sum(monthSalaries, "base_salary"), monthAllowance: sum(monthSalaries, "allowance"), monthOvertime: sum(monthSalaries, "overtime"), monthBonus: sum(monthSalaries, "bonus"), monthDeduction: sum(monthSalaries, "deduction"),
+      monthBase: sum(monthSalaries, "base_salary"), monthAllowance: sum(monthSalaries, "allowance"), monthBonus: sum(monthSalaries, "bonus"), monthDeduction: sum(monthSalaries, "deduction"),
       monthEarned: sum(monthSalaries, "total"), monthWithdrawn: sum(monthWithdrawals, "amount")
     };
   }
@@ -386,7 +386,7 @@
       </section>
       <section class="grid two employee-summary-grid">
         <article class="card"><h4>Perhitungan saldo keseluruhan</h4><div class="split-row"><span>Saldo awal per ${formatDate(data.opening?.effective_date)}</span><strong>${rupiah(data.openingBalance)}</strong></div><div class="split-row"><span>Total hak termasuk saldo awal</span><strong>${rupiah(data.totalEarned)}</strong></div><div class="split-row"><span>Total sudah diambil</span><strong class="negative">− ${rupiah(data.totalWithdrawn)}</strong></div><div class="detail-total"><span>Sisa saldo gaji</span><strong class="${balance < 0 ? "negative" : "positive"}">${rupiah(balance)}</strong></div></article>
-        <article class="card"><h4>Ringkasan ${escapeHtml(state.salaryMonth)}</h4><div class="split-row"><span>Hari tercatat</span><strong>${data.monthSalaries.length} hari</strong></div><div class="split-row"><span>Gaji pokok</span><strong>${rupiah(data.monthBase)}</strong></div><div class="split-row"><span>Tunjangan + lembur + bonus</span><strong class="positive">+ ${rupiah(data.monthAllowance + data.monthOvertime + data.monthBonus)}</strong></div><div class="split-row"><span>Potongan</span><strong class="negative">− ${rupiah(data.monthDeduction)}</strong></div><div class="split-row"><span>Pengambilan</span><strong class="negative">− ${rupiah(data.monthWithdrawn)}</strong></div><div class="detail-total"><span>Perubahan saldo bulan ini</span><strong>${rupiah(data.monthEarned - data.monthWithdrawn)}</strong></div></article>
+        <article class="card"><h4>Ringkasan ${escapeHtml(state.salaryMonth)}</h4><div class="split-row"><span>Hari tercatat</span><strong>${data.monthSalaries.length} hari</strong></div><div class="split-row"><span>Gaji pokok</span><strong>${rupiah(data.monthBase)}</strong></div><div class="split-row"><span>Tunjangan + bonus</span><strong class="positive">+ ${rupiah(data.monthAllowance + data.monthBonus)}</strong></div><div class="split-row"><span>Potongan</span><strong class="negative">− ${rupiah(data.monthDeduction)}</strong></div><div class="split-row"><span>Pengambilan</span><strong class="negative">− ${rupiah(data.monthWithdrawn)}</strong></div><div class="detail-total"><span>Perubahan saldo bulan ini</span><strong>${rupiah(data.monthEarned - data.monthWithdrawn)}</strong></div></article>
       </section>
       <section class="card section-gap"><div class="section-title-row"><div><h4>Riwayat gaji saya</h4><p class="muted employee-section-copy">Hanya transaksi milik Anda yang ditampilkan.</p></div></div><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Status/Metode</th><th>Pokok</th><th>Tambahan</th><th>Potongan</th><th>Nominal</th><th>Catatan</th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
   }
@@ -408,7 +408,6 @@
         <label class="field"><span>Kehadiran</span><select class="salary-status"><option value="hadir" ${status === "hadir" ? "selected" : ""}>Hadir</option><option value="setengah_hari" ${status === "setengah_hari" ? "selected" : ""}>Setengah hari</option><option value="izin" ${status === "izin" ? "selected" : ""}>Izin dibayar</option><option value="sakit" ${status === "sakit" ? "selected" : ""}>Sakit dibayar</option><option value="libur_dibayar" ${status === "libur_dibayar" ? "selected" : ""}>Libur dibayar</option><option value="libur_tidak_dibayar" ${status === "libur_tidak_dibayar" ? "selected" : ""}>Libur tidak dibayar</option><option value="alpa" ${status === "alpa" ? "selected" : ""}>Alpa</option></select></label>
         <label class="field"><span>Gaji pokok</span><input class="salary-base" type="number" min="0" value="${row.base_salary ?? employee.daily_salary}"></label>
         <label class="field"><span>Uang makan/transport</span><input class="salary-allowance" type="number" min="0" value="${num(row.allowance)}"></label>
-        <label class="field"><span>Lembur</span><input class="salary-overtime" type="number" min="0" value="${num(row.overtime)}"></label>
         <label class="field"><span>Bonus</span><input class="salary-bonus" type="number" min="0" value="${num(row.bonus)}"></label>
         <label class="field"><span>Potongan</span><input class="salary-deduction" type="number" min="0" value="${num(row.deduction)}"></label>
         <label class="field salary-note"><span>Catatan</span><input class="salary-notes" value="${escapeHtml(row.notes || "")}" placeholder="Opsional"></label>
@@ -419,7 +418,6 @@
     const ledger = salaryLedger().sort((a, b) => a.employee_name.localeCompare(b.employee_name, "id")).map(row => `<div class="split-row"><span><strong>${escapeHtml(row.employee_name)}</strong><br><small class="muted">Hak ${rupiah(row.earned)} · Diambil ${rupiah(row.withdrawn)}</small></span><strong class="positive">Sisa ${rupiah(row.balance)}</strong></div>`).join("") || '<div class="empty">Belum ada data.</div>';
     const openingRows = state.openingBalances.length ? state.openingBalances.map(row => { const balance = num(row.prior_salary) + num(row.prior_bonus) - num(row.prior_withdrawn); return `<tr><td>${formatDate(row.effective_date)}</td><td><strong>${escapeHtml(row.employee_name)}</strong></td><td>${rupiah(row.prior_salary)}</td><td>${rupiah(row.prior_bonus)}</td><td>${rupiah(row.prior_withdrawn)}</td><td class="${balance < 0 ? "negative" : "positive"}"><strong>${rupiah(balance)}</strong></td><td>${escapeHtml(row.notes || "-")}</td><td><div class="button-row"><button class="button edit small" data-action="edit-opening-balance" data-id="${row.id}" data-admin-action>Edit</button><button class="button danger small" data-action="delete-opening-balance" data-id="${row.id}" data-admin-action>Hapus</button></div></td></tr>`; }).join("") : '<tr><td colspan="8" class="empty">Belum ada saldo awal gaji.</td></tr>';
     return `
-      <div class="page-head"><div><h3>Gaji, bonus, dan pengambilan</h3><p>Hak gaji dicatat harian. Pengambilan hanya mengurangi saldo hak gaji.</p></div></div>
       <section class="salary-hero"><div><span class="hero-kicker">PENGGAJIAN HARIAN · VERSI 24</span><h3>Catat hak karyawan dengan lebih jelas</h3><p>Status hadir dan seluruh komponen langsung membentuk hak bersih serta potongan laba hari ini.</p></div><div class="salary-hero-date"><span>Tanggal aktif</span><strong>${formatDate(currentDate())}</strong></div></section>
       <section class="grid metric-grid salary-metrics">${metric("Hak gaji hari ini", rupiah(todayTotal), "positive")}${metric("Bonus hari ini", rupiah(todayBonus))}${metric("Potongan hari ini", rupiah(todayDeduction), "negative")}${metric("Saldo seluruh karyawan", rupiah(totalBalance), "positive")}${metric("Tercatat hadir", `${presentCount} orang`)}</section>
       <nav class="salary-tabs" aria-label="Bagian penggajian"><button class="salary-tab active" data-salary-tab="daily">Input Harian</button><button class="salary-tab" data-salary-tab="withdrawal">Pengambilan</button><button class="salary-tab" data-salary-tab="balance">Saldo Karyawan</button><button class="salary-tab" data-salary-tab="history">Riwayat</button><button class="salary-tab" data-salary-tab="opening">Saldo Awal</button></nav>
@@ -439,7 +437,7 @@
     if (opening) rows.push({ id: opening.id, source: "opening-balance", date: opening.effective_date, order: 0, description: opening.notes || "Saldo awal", bonus: num(opening.prior_bonus), salary: num(opening.prior_salary), withdrawal: num(opening.prior_withdrawn) });
     state.salaries.filter(row => row.employee_id === employeeId).forEach(row => {
       const status = String(row.attendance_status || (row.present ? "hadir" : "alpa")).replaceAll("_", " ");
-      const extras = num(row.allowance) + num(row.overtime) - num(row.deduction);
+      const extras = num(row.allowance) - num(row.deduction);
       const details = [`Gaji ${status}`, extras ? `tambahan bersih ${rupiah(extras)}` : "", row.notes || ""].filter(Boolean).join(" · ");
       rows.push({ id: row.id, source: "salary", date: row.salary_date, order: 1, description: details, bonus: num(row.bonus), salary: Math.max(0, num(row.base_salary) + extras), withdrawal: 0 });
     });
@@ -591,7 +589,7 @@
     if ($("#allocationWithdrawalForm")) $("#allocationWithdrawalForm").onsubmit = saveAllocationWithdrawal;
     if ($("#reportMonth")) $("#reportMonth").onchange = event => { state.reportMonth = event.target.value || localDate().slice(0, 7); renderPage(); };
     if ($("#mySalaryMonth")) $("#mySalaryMonth").onchange = event => { state.salaryMonth = event.target.value || localDate().slice(0, 7); renderPage(); };
-    $$(".salary-status, .salary-base, .salary-allowance, .salary-overtime, .salary-bonus, .salary-deduction").forEach(input => input.oninput = updateSalaryTotal);
+    $$(".salary-status, .salary-base, .salary-allowance, .salary-bonus, .salary-deduction").forEach(input => input.oninput = updateSalaryTotal);
     $$(".item-input, .unit-capital-input").forEach(input => input.oninput = updateProductCostPreview);
     $$(".payment-input").forEach(input => input.oninput = updatePaymentPreview);
     $$("[data-salary-tab]").forEach(button => button.onclick = () => showSalaryTab(button.dataset.salaryTab));
@@ -614,10 +612,9 @@
     const paid = !["alpa", "libur_tidak_dibayar"].includes(status);
     const base = paid ? num($(".salary-base", row).value) : 0;
     const allowance = paid ? num($(".salary-allowance", row).value) : 0;
-    const overtime = paid ? num($(".salary-overtime", row).value) : 0;
     const bonus = paid ? num($(".salary-bonus", row).value) : 0;
     const deduction = num($(".salary-deduction", row).value);
-    const total = Math.max(0, base + allowance + overtime + bonus - deduction);
+    const total = Math.max(0, base + allowance + bonus - deduction);
     $(".salary-total", row).textContent = rupiah(total);
     updateSalaryFormSummary();
   }
@@ -660,19 +657,18 @@
       const paid = !["alpa", "libur_tidak_dibayar"].includes(status);
       const base = paid ? num($(".salary-base", row).value) : 0;
       const allowance = paid ? num($(".salary-allowance", row).value) : 0;
-      const overtime = paid ? num($(".salary-overtime", row).value) : 0;
       const bonus = paid ? num($(".salary-bonus", row).value) : 0;
       const deduction = num($(".salary-deduction", row).value);
-      return { status, base, allowance, overtime, bonus, deduction, total: Math.max(0, base + allowance + overtime + bonus - deduction) };
+      return { status, base, allowance, bonus, deduction, total: Math.max(0, base + allowance + bonus - deduction) };
     });
-    return { count: rows.length, present: rows.filter(row => !["alpa", "libur_tidak_dibayar"].includes(row.status)).length, base: sum(rows, "base"), allowance: sum(rows, "allowance"), overtime: sum(rows, "overtime"), bonus: sum(rows, "bonus"), deduction: sum(rows, "deduction"), total: sum(rows, "total") };
+    return { count: rows.length, present: rows.filter(row => !["alpa", "libur_tidak_dibayar"].includes(row.status)).length, base: sum(rows, "base"), allowance: sum(rows, "allowance"), bonus: sum(rows, "bonus"), deduction: sum(rows, "deduction"), total: sum(rows, "total") };
   }
 
   function updateSalaryFormSummary() {
     const target = $("#salaryLiveSummary");
     if (!target) return;
     const draft = salaryDraftSummary();
-    target.innerHTML = `<div><span>Karyawan hadir</span><strong>${draft.present} dari ${draft.count}</strong></div><div><span>Gaji pokok</span><strong>${rupiah(draft.base)}</strong></div><div><span>Tunjangan</span><strong>${rupiah(draft.allowance)}</strong></div><div><span>Lembur + bonus</span><strong>${rupiah(draft.overtime + draft.bonus)}</strong></div><div><span>Potongan</span><strong class="negative">− ${rupiah(draft.deduction)}</strong></div><div class="summary-grand"><span>Total hak bersih</span><strong>${rupiah(draft.total)}</strong></div>`;
+    target.innerHTML = `<div><span>Karyawan hadir</span><strong>${draft.present} dari ${draft.count}</strong></div><div><span>Gaji pokok</span><strong>${rupiah(draft.base)}</strong></div><div><span>Tunjangan</span><strong>${rupiah(draft.allowance)}</strong></div><div><span>Bonus</span><strong>${rupiah(draft.bonus)}</strong></div><div><span>Potongan</span><strong class="negative">− ${rupiah(draft.deduction)}</strong></div><div class="summary-grand"><span>Total hak bersih</span><strong>${rupiah(draft.total)}</strong></div>`;
   }
 
   function updateWithdrawalPreview() {
@@ -935,11 +931,10 @@
       const present = !["alpa", "libur_tidak_dibayar"].includes(attendanceStatus);
       const base = present ? num($(".salary-base", element).value) : 0;
       const allowance = present ? num($(".salary-allowance", element).value) : 0;
-      const overtime = present ? num($(".salary-overtime", element).value) : 0;
       const bonus = present ? num($(".salary-bonus", element).value) : 0;
       const deduction = num($(".salary-deduction", element).value);
-      const total = Math.max(0, base + allowance + overtime + bonus - deduction);
-      return { salary_date: currentDate(), employee_id: employee.id, employee_name: employee.name, present, attendance_status: attendanceStatus, base_salary: base, allowance, overtime, bonus, deduction, total, notes: $(".salary-notes", element).value.trim(), updated_at: new Date().toISOString() };
+      const total = Math.max(0, base + allowance + bonus - deduction);
+      return { salary_date: currentDate(), employee_id: employee.id, employee_name: employee.name, present, attendance_status: attendanceStatus, base_salary: base, allowance, overtime: 0, bonus, deduction, total, notes: $(".salary-notes", element).value.trim(), updated_at: new Date().toISOString() };
     });
     setLoading(true);
     try { assertResult(await db.from("salaries").upsert(rows, { onConflict: "salary_date,employee_id" })); toast("Gaji dan bonus tersimpan."); await loadData(); }
@@ -986,15 +981,14 @@
       { name: "attendance_status", label: "Status kehadiran", type: "select", value: row.attendance_status || "hadir", required: true, options: [{value:"hadir",label:"Hadir"},{value:"setengah_hari",label:"Setengah hari"},{value:"izin",label:"Izin dibayar"},{value:"sakit",label:"Sakit dibayar"},{value:"libur_dibayar",label:"Libur dibayar"},{value:"libur_tidak_dibayar",label:"Libur tidak dibayar"},{value:"alpa",label:"Alpa"}] },
       { name: "base_salary", label: "Gaji pokok", type: "number", min: 0, value: row.base_salary, required: true },
       { name: "allowance", label: "Uang makan/transport", type: "number", min: 0, value: row.allowance || 0, required: true },
-      { name: "overtime", label: "Lembur", type: "number", min: 0, value: row.overtime || 0, required: true },
       { name: "bonus", label: "Bonus", type: "number", min: 0, value: row.bonus, required: true },
       { name: "deduction", label: "Potongan", type: "number", min: 0, value: row.deduction || 0, required: true },
       { name: "notes", label: "Catatan", type: "textarea", value: row.notes || "", full: true }
     ]);
     if (!data) return;
     const paid = !["alpa", "libur_tidak_dibayar"].includes(data.attendance_status);
-    const base = paid ? num(data.base_salary) : 0, allowance = paid ? num(data.allowance) : 0, overtime = paid ? num(data.overtime) : 0, bonus = paid ? num(data.bonus) : 0, deduction = num(data.deduction);
-    assertResult(await db.from("salaries").update({ attendance_status: data.attendance_status, present: paid, base_salary: base, allowance, overtime, bonus, deduction, total: Math.max(0, base + allowance + overtime + bonus - deduction), notes: data.notes.trim(), updated_at: new Date().toISOString() }).eq("id", id));
+    const base = paid ? num(data.base_salary) : 0, allowance = paid ? num(data.allowance) : 0, bonus = paid ? num(data.bonus) : 0, deduction = num(data.deduction);
+    assertResult(await db.from("salaries").update({ attendance_status: data.attendance_status, present: paid, base_salary: base, allowance, overtime: 0, bonus, deduction, total: Math.max(0, base + allowance + bonus - deduction), notes: data.notes.trim(), updated_at: new Date().toISOString() }).eq("id", id));
     toast("Riwayat gaji diperbarui."); await loadData();
   }
 
@@ -1254,7 +1248,7 @@
     const add = (name, rows) => XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(rows.length ? rows : [{ Keterangan: "Tidak ada data" }]), name);
     add("Ringkasan", reports.map(row => ({ Tanggal: row.report_date, Penjualan: num(row.product_sales), Modal: num(row.capital), Laba_Kotor: num(row.gross_profit), Gaji_Bonus: num(row.salary), Pengeluaran: num(row.expenses), Dasar_Alokasi: num(row.profit_to_share), Total_Alokasi: num(row.fixed_allocations) + num(row.percentage_allocations), Tunai: num(row.payment_cash), Transfer: num(row.payment_transfer), QRIS: num(row.payment_qris), Selisih_Pembayaran: num(row.payment_difference), Pemilik: num(row.owner_result) })));
     add("Produk", state.products.filter(row => inMonth(row.report_date)).map(row => ({ Tanggal: row.report_date, Produk: row.product, Penjualan: num(row.sales), Item: num(row.items), Modal_Satuan: num(row.unit_capital), Modal_Total: num(row.capital), Laba: num(row.profit) })));
-    add("Gaji", state.salaries.filter(row => inMonth(row.salary_date)).map(row => ({ Tanggal: row.salary_date, Karyawan: row.employee_name, Status: row.attendance_status || (row.present ? "hadir" : "alpa"), Gaji_Pokok: num(row.base_salary), Tunjangan: num(row.allowance), Lembur: num(row.overtime), Bonus: num(row.bonus), Potongan: num(row.deduction), Total_Bersih: num(row.total), Catatan: row.notes || "" })));
+    add("Gaji", state.salaries.filter(row => inMonth(row.salary_date)).map(row => ({ Tanggal: row.salary_date, Karyawan: row.employee_name, Status: row.attendance_status || (row.present ? "hadir" : "alpa"), Gaji_Pokok: num(row.base_salary), Tunjangan: num(row.allowance), Bonus: num(row.bonus), Potongan: num(row.deduction), Total_Bersih: num(row.total), Catatan: row.notes || "" })));
     add("Pengambilan Gaji", state.withdrawals.filter(row => inMonth(row.withdrawal_date)).map(row => ({ Tanggal: row.withdrawal_date, Karyawan: row.employee_name, Nominal: num(row.amount), Metode: row.payment_method || "cash", Referensi: row.reference_number || "", Catatan: row.notes || "" })));
     add("Pengeluaran", state.expenses.filter(row => inMonth(row.expense_date)).map(row => ({ Tanggal: row.expense_date, Jenis: row.expense_type, Karyawan: row.employee_name || "", Kategori: row.category, Nominal: num(row.amount), Catatan: row.description || "" })));
     XLSX.writeFile(workbook, `Laporan-UD-Fikri-${month}.xlsx`);
@@ -1275,7 +1269,7 @@
     const rows = data.history.map(row => `<tr><td>${formatDate(row.date)}</td><td>${escapeHtml(row.type)}</td><td>${escapeHtml(row.status)}</td><td>${row.base === null ? "-" : rupiah(row.base)}</td><td>${row.additions === null ? "-" : rupiah(row.additions)}</td><td>${row.deduction === null ? "-" : rupiah(row.deduction)}</td><td>${row.amount < 0 ? "− " : "+ "}${rupiah(Math.abs(row.amount))}</td><td>${escapeHtml(row.notes || "-")}</td></tr>`).join("") || '<tr><td colspan="8">Belum ada transaksi.</td></tr>';
     const popup = window.open("", "_blank");
     if (!popup) throw new Error("Izinkan pop-up browser untuk mencetak slip gaji.");
-    popup.document.write(`<html><head><title>Slip Gaji ${escapeHtml(data.employee?.name || "Karyawan")} ${state.salaryMonth}</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#163738}h1{margin:0}p{margin:5px 0}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 0}.summary div{padding:12px;border:1px solid #dce9e7;border-radius:8px}.summary span,.summary strong{display:block}.summary span{font-size:11px;color:#688283;text-transform:uppercase}.summary strong{margin-top:6px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:7px;border:1px solid #dce9e7;text-align:left}th{background:#e5f4f0}@media(max-width:700px){.summary{grid-template-columns:1fr 1fr}}@media print{body{padding:0}}</style></head><body><h1>UD Fikri</h1><p>Slip gaji ${escapeHtml(data.employee?.name || state.profile?.full_name || "Karyawan")}</p><p>Periode ${escapeHtml(state.salaryMonth)}</p><section class="summary"><div><span>Gaji pokok</span><strong>${rupiah(data.monthBase)}</strong></div><div><span>Tambahan</span><strong>${rupiah(data.monthAllowance + data.monthOvertime + data.monthBonus)}</strong></div><div><span>Potongan</span><strong>${rupiah(data.monthDeduction)}</strong></div><div><span>Diambil bulan ini</span><strong>${rupiah(data.monthWithdrawn)}</strong></div><div><span>Saldo keseluruhan</span><strong>${rupiah(balance)}</strong></div></section><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Status/Metode</th><th>Pokok</th><th>Tambahan</th><th>Potongan</th><th>Nominal</th><th>Catatan</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`);
+    popup.document.write(`<html><head><title>Slip Gaji ${escapeHtml(data.employee?.name || "Karyawan")} ${state.salaryMonth}</title><style>body{font-family:Arial,sans-serif;padding:28px;color:#163738}h1{margin:0}p{margin:5px 0}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:22px 0}.summary div{padding:12px;border:1px solid #dce9e7;border-radius:8px}.summary span,.summary strong{display:block}.summary span{font-size:11px;color:#688283;text-transform:uppercase}.summary strong{margin-top:6px}table{width:100%;border-collapse:collapse;font-size:11px}th,td{padding:7px;border:1px solid #dce9e7;text-align:left}th{background:#e5f4f0}@media(max-width:700px){.summary{grid-template-columns:1fr 1fr}}@media print{body{padding:0}}</style></head><body><h1>UD Fikri</h1><p>Slip gaji ${escapeHtml(data.employee?.name || state.profile?.full_name || "Karyawan")}</p><p>Periode ${escapeHtml(state.salaryMonth)}</p><section class="summary"><div><span>Gaji pokok</span><strong>${rupiah(data.monthBase)}</strong></div><div><span>Tambahan</span><strong>${rupiah(data.monthAllowance + data.monthBonus)}</strong></div><div><span>Potongan</span><strong>${rupiah(data.monthDeduction)}</strong></div><div><span>Diambil bulan ini</span><strong>${rupiah(data.monthWithdrawn)}</strong></div><div><span>Saldo keseluruhan</span><strong>${rupiah(balance)}</strong></div></section><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Status/Metode</th><th>Pokok</th><th>Tambahan</th><th>Potongan</th><th>Nominal</th><th>Catatan</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=()=>window.print()<\/script></body></html>`);
     popup.document.close();
   }
 
@@ -1297,7 +1291,7 @@
     const allocations = (Array.isArray(report.allocation_json) ? report.allocation_json : []).filter(row => ["fixed", "percent"].includes(row.type));
     const payment = paymentSummary(report);
     const productRows = products.map(row => `<tr><td>${escapeHtml(row.product)}</td><td>${row.items}</td><td>${rupiah(row.unit_capital)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.sales)}</td><td>${rupiah(row.profit)}</td></tr>`).join("") || '<tr><td colspan="6">Tidak ada produk.</td></tr>';
-    const salaryRows = salaries.map(row => `<tr><td>${escapeHtml(row.employee_name)}</td><td>${escapeHtml(String(row.attendance_status || "hadir").replaceAll("_", " "))}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(num(row.allowance) + num(row.overtime) + num(row.bonus))}</td><td>${rupiah(row.deduction)}</td><td>${rupiah(row.total)}</td><td>${escapeHtml(row.notes || "-")}</td></tr>`).join("") || '<tr><td colspan="7">Tidak ada gaji.</td></tr>';
+    const salaryRows = salaries.map(row => `<tr><td>${escapeHtml(row.employee_name)}</td><td>${escapeHtml(String(row.attendance_status || "hadir").replaceAll("_", " "))}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(num(row.allowance) + num(row.bonus))}</td><td>${rupiah(row.deduction)}</td><td>${rupiah(row.total)}</td><td>${escapeHtml(row.notes || "-")}</td></tr>`).join("") || '<tr><td colspan="7">Tidak ada gaji.</td></tr>';
     const expenseRows = expenses.map(row => `<tr><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td></tr>`).join("") || '<tr><td colspan="4">Tidak ada pengeluaran.</td></tr>';
     const allocationRows = allocations.map(row => `<tr><td>${escapeHtml(row.name)}</td><td>${row.type === "percent" ? `${num(row.value)}%` : "Nominal"}</td><td>${rupiah(row.amount)}</td></tr>`).join("") || '<tr><td colspan="3">Tidak ada alokasi.</td></tr>';
     return `<div class="detail-actions">${printMode ? "" : `<button class="button secondary" data-action="print-daily-report" data-id="${report.id}">Cetak / PDF</button>`}</div>
