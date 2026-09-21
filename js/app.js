@@ -11,7 +11,7 @@
     expenses: [], rules: [], reports: [], profile: null, profiles: [], categories: [], audits: [], openingBalances: [],
     cash: [], allocationWithdrawals: [], monthlyClosings: [], reportMonth: localDate().slice(0, 7),
     salaryMonth: localDate().slice(0, 7), salaryTab: "daily", salaryHistoryEmployee: null, salaryHistoryPage: 1, salaryHistoryPageSize: 10,
-    mySalaryPage: 1, mySalaryPageSize: 10, parsedImport: null
+    mySalaryPage: 1, mySalaryPageSize: 10, dashboardReportPage: 1, dashboardReportPageSize: 10, parsedImport: null
   };
 
   const titles = {
@@ -273,39 +273,45 @@
 
   function renderDashboard() {
     const summary = calculation();
-    const salaryDetails = currentSalaries().length
-      ? currentSalaries().map(row => `<div class="split-row"><span>${escapeHtml(row.employee_name)}${num(row.bonus) > 0 ? ` <small>+ bonus ${rupiah(row.bonus)}</small>` : ""}</span><strong>${rupiah(row.total)}</strong></div>`).join("")
-      : '<div class="empty">Belum ada gaji pada tanggal ini.</div>';
-    const expenseDetails = currentExpenses().length
-      ? currentExpenses().map(row => `<div class="split-row"><span>${escapeHtml(row.category)}${row.employee_name ? ` <small>— ${escapeHtml(row.employee_name)}</small>` : ""}</span><strong>${rupiah(row.amount)}</strong></div>`).join("")
-      : '<div class="empty">Belum ada pengeluaran pada tanggal ini.</div>';
-    const allocationDetails = summary.allocations.filter(row => ["fixed", "percent"].includes(row.type)).length
-      ? summary.allocations.filter(row => ["fixed", "percent"].includes(row.type)).map(row => `<div class="split-row"><span>${escapeHtml(row.name)}${row.type === "percent" ? ` <small>(${num(row.value)}%)</small>` : ""}</span><strong class="${row.target === "owner" ? "positive" : ""}">${rupiah(row.amount)}</strong></div>`).join("")
-      : '<div class="empty">Belum ada aturan alokasi aktif.</div>';
-    const history = state.reports.length
-      ? state.reports.map(row => `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.salary)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.profit_to_share)}</td><td><strong>${rupiah(num(row.fixed_allocations) + num(row.percentage_allocations))}</strong></td><td><strong>${rupiah(row.owner_result)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="view-report" data-id="${row.id}">Lihat detail</button><button class="button danger small" data-action="delete-report" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
-      : '<tr><td colspan="10" class="empty">Belum ada riwayat tutup buku.</td></tr>';
+    const salaries = currentSalaries();
+    const expenses = currentExpenses();
+    const allocations = summary.allocations.filter(row => ["fixed", "percent"].includes(row.type));
+    const postAllocations = allocations.filter(row => row.target !== "owner" && !/pemilik/i.test(row.name));
+    const totalPosts = postAllocations.reduce((total, row) => total + num(row.amount), 0);
+    const netProfit = summary.grossProfit - summary.expenses - summary.salary - totalPosts;
+    const salaryRows = salaries.length ? salaries.map(row => `<tr><td>${escapeHtml(row.employee_name)}</td><td>${escapeHtml(String(row.attendance_status || (row.present ? "hadir" : "alpa")).replaceAll("_", " "))}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(row.allowance)}</td><td>${rupiah(row.bonus)}</td><td>${rupiah(row.deduction)}</td><td><strong>${rupiah(row.total)}</strong></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada gaji pada tanggal ini.</td></tr>';
+    const expenseRows = expenses.length ? expenses.map(row => `<tr><td>${escapeHtml(row.expense_type === "employee" ? "Karyawan" : "Operasional")}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td><strong>${rupiah(row.amount)}</strong></td></tr>`).join("") : '<tr><td colspan="5" class="empty">Belum ada pengeluaran pada tanggal ini.</td></tr>';
+    const allocationRows = postAllocations.length ? postAllocations.map(row => `<tr><td>${escapeHtml(row.name)}</td><td>${row.type === "fixed" ? "Nominal tetap" : "Persentase"}</td><td>${row.type === "fixed" ? rupiah(row.value) : `${num(row.value)}%`}</td><td><strong>${rupiah(row.amount)}</strong></td></tr>`).join("") : '<tr><td colspan="4" class="empty">Belum ada pos pembagian aktif.</td></tr>';
+    const reportRows = [...state.reports].sort((a, b) => String(b.report_date).localeCompare(String(a.report_date)));
+    const reportPageCount = Math.max(1, Math.ceil(reportRows.length / state.dashboardReportPageSize));
+    state.dashboardReportPage = Math.min(Math.max(1, state.dashboardReportPage), reportPageCount);
+    const reportStart = (state.dashboardReportPage - 1) * state.dashboardReportPageSize;
+    const visibleReports = reportRows.slice(reportStart, reportStart + state.dashboardReportPageSize);
+    const history = visibleReports.length ? visibleReports.map(row => {
+      const savedAllocations = Array.isArray(row.allocation_json) ? row.allocation_json : [];
+      const historicalPosts = savedAllocations.filter(item => ["fixed", "percent"].includes(item.type) && item.target !== "owner" && !/pemilik/i.test(item.name || "")).reduce((total, item) => total + num(item.amount), 0);
+      const postTotal = savedAllocations.length ? historicalPosts : num(row.fixed_allocations) + num(row.percentage_allocations) - num(row.owner_result);
+      const historicalNet = num(row.gross_profit) - num(row.expenses) - num(row.salary) - postTotal;
+      return `<tr><td>${formatDate(row.report_date)}</td><td>${rupiah(row.product_sales)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.gross_profit)}</td><td>${rupiah(row.expenses)}</td><td>${rupiah(row.salary)}</td><td><strong>${rupiah(postTotal)}</strong></td><td><strong>${rupiah(historicalNet)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="view-report" data-id="${row.id}">Lihat detail</button><button class="button danger small" data-action="delete-report" data-id="${row.id}">Hapus</button></div></td></tr>`;
+    }).join("") : '<tr><td colspan="9" class="empty">Belum ada riwayat tutup buku.</td></tr>';
+    const reportPages = Array.from({ length: reportPageCount }, (_, index) => index + 1).filter(page => page === 1 || page === reportPageCount || Math.abs(page - state.dashboardReportPage) <= 1).map((page, index, list) => `${index && page - list[index - 1] > 1 ? '<span class="pagination-ellipsis">…</span>' : ""}<button class="ledger-page ${page === state.dashboardReportPage ? "active" : ""}" data-dashboard-report-page="${page}">${page}</button>`).join("");
     return `
       <div class="page-head"><div><h3>Ringkasan ${formatDate(currentDate())}</h3><p>Posisi penjualan dan pembagian laba tanggal aktif.</p></div><button class="button primary" data-go="sales">Import penjualan</button></div>
-      <section class="grid metric-grid">
-        ${metric("Penjualan produk", rupiah(summary.productSales))}${metric("Modal barang", rupiah(summary.capital))}
-        ${metric("Laba kotor", rupiah(summary.grossProfit), "positive")}${metric("Gaji & bonus", rupiah(summary.salary), "negative")}
-        ${metric("Semua pengeluaran", rupiah(summary.expenses), "negative")}${metric("Sisa laba untuk alokasi", rupiah(summary.profitToShare), "positive")}
-        ${metric("Total alokasi", rupiah(summary.fixedAllocations + summary.percentageAllocations))}${metric("Hasil pemilik", rupiah(summary.ownerResult), "positive")}${metric("Item terjual", summary.items.toLocaleString("id-ID"))}${summary.deficit > 0 ? metric("Defisit hari ini", `− ${rupiah(summary.deficit)}`, "negative") : ""}
+      <section class="grid dashboard-seven-metrics">
+        ${metric("Penjualan Produk (Omzet)", rupiah(summary.productSales))}
+        ${metric("Modal Produk", rupiah(summary.capital))}
+        ${metric("Laba Kotor", rupiah(summary.grossProfit), "positive")}
+        ${metric("Pengeluaran", rupiah(summary.expenses), "negative")}
+        ${metric("Total Gaji Karyawan", rupiah(summary.salary), "negative")}
+        ${metric("Total Pos Pembagian", rupiah(totalPosts))}
+        ${metric("Laba Bersih", rupiah(netProfit), netProfit < 0 ? "negative" : "positive")}
       </section>
-      <section class="grid section-gap dashboard-detail-grid">
-        <article class="card detail-card"><h4>Rincian Gaji & Bonus</h4>${salaryDetails}<div class="detail-total"><span>Total gaji & bonus</span><strong>${rupiah(summary.salary)}</strong></div></article>
-        <article class="card detail-card"><h4>Rincian Pengeluaran</h4>${expenseDetails}<div class="detail-total"><span>Total pengeluaran</span><strong>${rupiah(summary.expenses)}</strong></div></article>
-        <article class="card detail-card"><h4>Rincian Alokasi</h4>${allocationDetails}<div class="detail-total"><span>Total alokasi</span><strong>${rupiah(summary.fixedAllocations + summary.percentageAllocations)}</strong></div></article>
-        <article class="card detail-card"><h4>Alur perhitungan</h4>
-          <div class="split-row"><span>Laba kotor</span><strong>${rupiah(summary.grossProfit)}</strong></div>
-          <div class="split-row"><span>Gaji dan bonus</span><strong class="negative">− ${rupiah(summary.salary)}</strong></div>
-          <div class="split-row"><span>Semua pengeluaran</span><strong class="negative">− ${rupiah(summary.expenses)}</strong></div>
-          <div class="split-row"><span>Alokasi nominal tetap</span><strong class="negative">− ${rupiah(summary.fixedAllocations)}</strong></div>
-          <div class="split-row"><span>Sisa laba untuk alokasi</span><strong class="positive">${rupiah(summary.profitToShare)}</strong></div>
-        </article>
+      <section class="dashboard-tables section-gap">
+        <article class="card"><h4>Rincian Pengeluaran</h4><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th></tr></thead><tbody>${expenseRows}</tbody><tfoot><tr class="table-total-row"><td colspan="4">Total pengeluaran</td><td><strong>${rupiah(summary.expenses)}</strong></td></tr></tfoot></table></div></article>
+        <article class="card"><h4>Rincian Gaji Karyawan & Bonus</h4><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Status</th><th>Gaji Pokok</th><th>Tunjangan</th><th>Bonus</th><th>Potongan</th><th>Total</th></tr></thead><tbody>${salaryRows}</tbody><tfoot><tr class="table-total-row"><td colspan="6">Total gaji karyawan</td><td><strong>${rupiah(summary.salary)}</strong></td></tr></tfoot></table></div></article>
+        <article class="card"><h4>Rincian Pos Pembagian</h4><div class="table-wrap"><table><thead><tr><th>Nama Pos</th><th>Jenis</th><th>Nilai Aturan</th><th>Nominal Pembagian</th></tr></thead><tbody>${allocationRows}</tbody><tfoot><tr class="table-total-row"><td colspan="3">Total pos pembagian</td><td><strong>${rupiah(totalPosts)}</strong></td></tr></tfoot></table></div></article>
       </section>
-      <section class="card section-gap"><h4>Riwayat tutup buku</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba</th><th>Gaji</th><th>Pengeluaran</th><th>Dasar alokasi</th><th>Total alokasi</th><th>Pemilik</th><th>Aksi</th></tr></thead><tbody>${history}</tbody></table></div></section>`;
+      <section class="card section-gap"><div class="section-title-row"><h4>Riwayat Tutup Buku</h4><label class="field ledger-page-size"><span>Baris</span><select id="dashboardReportPageSize"><option value="10" ${state.dashboardReportPageSize === 10 ? "selected" : ""}>10</option><option value="20" ${state.dashboardReportPageSize === 20 ? "selected" : ""}>20</option><option value="50" ${state.dashboardReportPageSize === 50 ? "selected" : ""}>50</option></select></label></div><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Penjualan</th><th>Modal</th><th>Laba Kotor</th><th>Pengeluaran</th><th>Gaji</th><th>Pos Pembagian</th><th>Laba Bersih</th><th>Aksi</th></tr></thead><tbody>${history}</tbody></table></div><div class="ledger-pagination"><span>Menampilkan ${reportRows.length ? reportStart + 1 : 0}–${Math.min(reportStart + state.dashboardReportPageSize, reportRows.length)} dari ${reportRows.length} laporan</span><div><button class="ledger-page" data-dashboard-report-page="${Math.max(1, state.dashboardReportPage - 1)}" ${state.dashboardReportPage === 1 ? "disabled" : ""}>Sebelumnya</button>${reportPages}<button class="ledger-page" data-dashboard-report-page="${Math.min(reportPageCount, state.dashboardReportPage + 1)}" ${state.dashboardReportPage === reportPageCount ? "disabled" : ""}>Berikutnya</button></div></div></section>`;
   }
 
   function renderSales() {
@@ -608,6 +614,16 @@
     if ($("#mySalaryPageSize")) $("#mySalaryPageSize").onchange = event => {
       state.mySalaryPageSize = num(event.target.value) || 10;
       state.mySalaryPage = 1;
+      renderPage();
+    };
+    $$("[data-dashboard-report-page]").forEach(button => button.onclick = () => {
+      if (button.disabled) return;
+      state.dashboardReportPage = num(button.dataset.dashboardReportPage) || 1;
+      renderPage();
+    });
+    if ($("#dashboardReportPageSize")) $("#dashboardReportPageSize").onchange = event => {
+      state.dashboardReportPageSize = num(event.target.value) || 10;
+      state.dashboardReportPage = 1;
       renderPage();
     };
   }
