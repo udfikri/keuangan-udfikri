@@ -69,6 +69,19 @@ create table if not exists public.salary_withdrawals (
   created_at timestamptz not null default now()
 );
 
+-- Penyempurnaan penggajian v23 (aman dijalankan pada instalasi baru/lama)
+alter table public.salaries
+  add column if not exists attendance_status text not null default 'hadir',
+  add column if not exists allowance numeric(14,2) not null default 0,
+  add column if not exists overtime numeric(14,2) not null default 0,
+  add column if not exists deduction numeric(14,2) not null default 0,
+  add column if not exists created_by uuid references auth.users(id),
+  add column if not exists updated_by uuid references auth.users(id);
+alter table public.salary_withdrawals
+  add column if not exists payment_method text not null default 'cash',
+  add column if not exists reference_number text,
+  add column if not exists created_by uuid references auth.users(id);
+
 create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   expense_date date not null,

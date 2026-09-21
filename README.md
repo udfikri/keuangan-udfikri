@@ -1,13 +1,14 @@
 # Sistem Hasil Penjualan UD Fikri — Web + Supabase
 
-Versi web berbasis HTML, CSS, JavaScript, dan Supabase. Semua halaman berada dalam satu dashboard responsif yang dapat dipasang di Vercel, Netlify, Cloudflare Pages, atau hosting statis lain.
+Versi web berbasis HTML, CSS, JavaScript, dan Supabase. Versi 23 memakai halaman terpisah agar lebih mudah dipelihara dan tetap dapat dipasang di Vercel, Netlify, Cloudflare Pages, atau hosting statis lain.
 
 ## Fitur
 
 - Login email dan password melalui Supabase Auth
 - Import Excel Produk Terlaris Griyo Pos
 - Perhitungan penjualan, modal, laba kotor, dan jumlah item
-- Gaji pokok dan bonus harian
+- Status kehadiran, gaji pokok, tunjangan, lembur, bonus, potongan, dan hak bersih
+- Metode pembayaran serta nomor referensi pengambilan gaji
 - Pengambilan gaji dan saldo hak gaji setiap karyawan
 - Pencarian serta pengurutan riwayat gaji berdasarkan nama
 - Pengeluaran operasional dan pengeluaran yang ditandai nama karyawan
@@ -21,20 +22,30 @@ Versi web berbasis HTML, CSS, JavaScript, dan Supabase. Semua halaman berada dal
 ```text
 dist/
 ├── index.html
+├── dashboard.html
+├── penjualan.html
+├── gaji.html
+├── gaji-saya.html
+├── pengeluaran.html
+├── laporan.html
+├── kelola-data.html
 ├── assets/logo-ud-fikri.png
 ├── css/style.css
 └── js/
     ├── config.js
     ├── supabase.js
-    └── app.js
+    ├── app.js
+    └── pages/                 # titik masuk setiap halaman
 supabase/
-└── schema.sql
+├── schema.sql
+└── upgrade-gaji-v23.sql
 ```
 
 ## Pemasangan Supabase
 
 1. Buat project baru di Supabase.
 2. Buka **SQL Editor**, salin seluruh isi `supabase/schema.sql`, kemudian jalankan.
+   Untuk database lama maupun database yang sudah pernah menjalankan schema versi sebelumnya, jalankan juga `supabase/upgrade-gaji-v23.sql` satu kali sebelum menggunakan halaman gaji versi baru.
 3. Buka **Authentication → Users → Add user** dan buat akun admin menggunakan email serta password.
 4. Buka **Project Settings → API**.
 5. Salin **Project URL** dan **anon/public key** ke `dist/js/config.js`:

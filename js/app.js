@@ -5,7 +5,7 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const state = {
-    page: "dashboard",
+    page: window.UD_FIKRI_PAGE || document.body.dataset.page || "dashboard",
     settings: { store_name: "UD Fikri", active_date: localDate() },
     employees: [], imports: [], products: [], salaries: [], withdrawals: [],
     expenses: [], rules: [], reports: [], profile: null, profiles: [], categories: [], audits: [], openingBalances: [],
@@ -16,6 +16,12 @@
   const titles = {
     dashboard: "Dashboard", sales: "Import & Tutup Buku", salary: "Gaji Karyawan",
     expenses: "Pengeluaran", reports: "Laporan & Kas", master: "Kelola Data", mySalary: "Gaji Saya"
+  };
+
+  const pageUrls = {
+    dashboard: "dashboard.html", sales: "penjualan.html", salary: "gaji.html",
+    expenses: "pengeluaran.html", reports: "laporan.html", master: "kelola-data.html",
+    mySalary: "gaji-saya.html"
   };
 
   function localDate(date = new Date()) {
@@ -206,6 +212,8 @@
       configureRoleView();
       $("#brandName").textContent = state.settings.store_name;
       $("#userRole").textContent = role() === "employee" ? "KARYAWAN" : role().toUpperCase();
+      $("#pageTitle").textContent = titles[state.page] || titles.dashboard;
+      $$(".nav-item[data-page]").forEach(button => button.classList.toggle("active", button.dataset.page === state.page));
       $("#activeDate").value = currentDate();
       renderPage();
     } catch (error) {
@@ -215,6 +223,11 @@
 
   function changePage(page) {
     if (role() === "employee" && page !== "mySalary") page = "mySalary";
+    const destination = pageUrls[page];
+    if (destination && !location.pathname.endsWith(destination)) {
+      location.href = destination;
+      return;
+    }
     state.page = page;
     $("#pageTitle").textContent = titles[page];
     $$(".nav-item[data-page]").forEach(button => button.classList.toggle("active", button.dataset.page === page));
@@ -247,7 +260,10 @@
       button.classList.toggle("hidden", employeeMode ? !isEmployeePage : isEmployeePage);
     });
     $(".active-date").classList.toggle("hidden", employeeMode);
-    if (employeeMode) state.page = "mySalary";
+    if (employeeMode && state.page !== "mySalary") {
+      location.href = pageUrls.mySalary;
+      return;
+    }
   }
 
   function metric(label, value, tone = "") {
@@ -380,17 +396,28 @@
     const employees = activeEmployees();
     const salaryRows = employees.length ? employees.map(employee => {
       const row = saved.get(employee.id) || {};
-      const present = row.present === undefined ? true : row.present;
-      return `<div class="salary-line" data-employee="${employee.id}"><strong>${escapeHtml(employee.name)}</strong><label class="check-row"><input class="salary-present" type="checkbox" ${present ? "checked" : ""}> Masuk</label><input class="salary-base" type="number" min="0" value="${row.base_salary ?? employee.daily_salary}" aria-label="Gaji pokok ${escapeHtml(employee.name)}"><input class="salary-bonus" type="number" min="0" value="${num(row.bonus)}" aria-label="Bonus ${escapeHtml(employee.name)}"><strong class="salary-total">${rupiah(row.total ?? employee.daily_salary)}</strong><input class="salary-notes" value="${escapeHtml(row.notes || "")}" placeholder="Catatan"></div>`;
+      const status = row.attendance_status || (row.present === false ? "alpa" : "hadir");
+      return `<article class="salary-entry-card salary-line" data-employee="${employee.id}">
+        <div class="salary-person"><span class="employee-avatar">${escapeHtml(employee.name.slice(0, 1).toUpperCase())}</span><span><strong>${escapeHtml(employee.name)}</strong><small>Tarif harian ${rupiah(employee.daily_salary)}</small></span></div>
+        <label class="field"><span>Kehadiran</span><select class="salary-status"><option value="hadir" ${status === "hadir" ? "selected" : ""}>Hadir</option><option value="setengah_hari" ${status === "setengah_hari" ? "selected" : ""}>Setengah hari</option><option value="izin" ${status === "izin" ? "selected" : ""}>Izin dibayar</option><option value="sakit" ${status === "sakit" ? "selected" : ""}>Sakit dibayar</option><option value="libur_dibayar" ${status === "libur_dibayar" ? "selected" : ""}>Libur dibayar</option><option value="libur_tidak_dibayar" ${status === "libur_tidak_dibayar" ? "selected" : ""}>Libur tidak dibayar</option><option value="alpa" ${status === "alpa" ? "selected" : ""}>Alpa</option></select></label>
+        <label class="field"><span>Gaji pokok</span><input class="salary-base" type="number" min="0" value="${row.base_salary ?? employee.daily_salary}"></label>
+        <label class="field"><span>Uang makan/transport</span><input class="salary-allowance" type="number" min="0" value="${num(row.allowance)}"></label>
+        <label class="field"><span>Lembur</span><input class="salary-overtime" type="number" min="0" value="${num(row.overtime)}"></label>
+        <label class="field"><span>Bonus</span><input class="salary-bonus" type="number" min="0" value="${num(row.bonus)}"></label>
+        <label class="field"><span>Potongan</span><input class="salary-deduction" type="number" min="0" value="${num(row.deduction)}"></label>
+        <label class="field salary-note"><span>Catatan</span><input class="salary-notes" value="${escapeHtml(row.notes || "")}" placeholder="Opsional"></label>
+        <div class="salary-result"><span>Hak bersih</span><strong class="salary-total">${rupiah(row.total ?? employee.daily_salary)}</strong></div>
+      </article>`;
     }).join("") : '<div class="empty">Belum ada karyawan aktif.</div>';
     const options = employees.map(row => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join("");
     const ledger = salaryLedger().sort((a, b) => a.employee_name.localeCompare(b.employee_name, "id")).map(row => `<div class="split-row"><span><strong>${escapeHtml(row.employee_name)}</strong><br><small class="muted">Hak ${rupiah(row.earned)} · Diambil ${rupiah(row.withdrawn)}</small></span><strong class="positive">Sisa ${rupiah(row.balance)}</strong></div>`).join("") || '<div class="empty">Belum ada data.</div>';
     const openingRows = state.openingBalances.length ? state.openingBalances.map(row => { const balance = num(row.prior_salary) + num(row.prior_bonus) - num(row.prior_withdrawn); return `<tr><td>${formatDate(row.effective_date)}</td><td><strong>${escapeHtml(row.employee_name)}</strong></td><td>${rupiah(row.prior_salary)}</td><td>${rupiah(row.prior_bonus)}</td><td>${rupiah(row.prior_withdrawn)}</td><td class="${balance < 0 ? "negative" : "positive"}"><strong>${rupiah(balance)}</strong></td><td>${escapeHtml(row.notes || "-")}</td><td><div class="button-row"><button class="button edit small" data-action="edit-opening-balance" data-id="${row.id}" data-admin-action>Edit</button><button class="button danger small" data-action="delete-opening-balance" data-id="${row.id}" data-admin-action>Hapus</button></div></td></tr>`; }).join("") : '<tr><td colspan="8" class="empty">Belum ada saldo awal gaji.</td></tr>';
     return `
       <div class="page-head"><div><h3>Gaji, bonus, dan pengambilan</h3><p>Hak gaji dicatat harian. Pengambilan hanya mengurangi saldo hak gaji.</p></div></div>
-      <form id="salaryForm" class="card"><h4>Gaji dan bonus harian</h4><div class="salary-entry-scroll"><div class="salary-line salary-header" aria-hidden="true"><span>Karyawan</span><span>Status</span><span>Gaji pokok</span><span>Bonus</span><span>Total</span><span>Catatan</span></div>${salaryRows}</div><button class="button primary section-gap" type="submit">Simpan gaji harian</button></form>
+      <section class="salary-hero"><div><span class="hero-kicker">PENGGAJIAN HARIAN</span><h3>Catat hak karyawan dengan lebih jelas</h3><p>Status hadir dan seluruh komponen langsung membentuk hak bersih serta potongan laba hari ini.</p></div><div class="salary-hero-date"><span>Tanggal aktif</span><strong>${formatDate(currentDate())}</strong></div></section>
+      <form id="salaryForm" class="card salary-form-card"><div class="section-title-row"><div><h4>Input gaji harian</h4><p class="muted">Periksa status dan komponen setiap karyawan sebelum menyimpan.</p></div><button class="button secondary small" type="button" data-action="mark-all-present">Tandai semua hadir</button></div><div class="salary-card-list">${salaryRows}</div><div class="sticky-form-action"><span>Data tanggal ini akan ikut dalam perhitungan tutup buku.</span><button class="button primary" type="submit"><i class="fa-solid fa-floppy-disk"></i> Simpan gaji harian</button></div></form>
       <section class="grid two section-gap">
-        <form id="withdrawalForm" class="card"><h4>Pengambilan gaji</h4><div class="form-grid"><div class="field"><label>Karyawan</label><select id="withdrawEmployee" required>${options}</select></div><div class="field"><label>Nominal</label><input id="withdrawAmount" type="number" min="1" required></div><div class="field full"><label>Catatan</label><input id="withdrawNotes" placeholder="Keterangan pengambilan"></div></div><button class="button success section-gap" type="submit">Simpan pengambilan</button></form>
+        <form id="withdrawalForm" class="card"><h4>Pengambilan gaji</h4><p class="muted">Pengambilan mengurangi saldo hak, bukan laba untuk kedua kalinya.</p><div class="form-grid"><div class="field"><label>Karyawan</label><select id="withdrawEmployee" required>${options}</select></div><div class="field"><label>Nominal</label><input id="withdrawAmount" type="number" min="1" required></div><div class="field"><label>Metode pembayaran</label><select id="withdrawMethod"><option value="cash">Tunai</option><option value="transfer">Transfer</option><option value="qris">QRIS</option></select></div><div class="field"><label>Nomor referensi</label><input id="withdrawReference" placeholder="Opsional"></div><div class="field full"><label>Catatan</label><input id="withdrawNotes" placeholder="Keterangan pengambilan"></div></div><button class="button success section-gap" type="submit">Simpan pengambilan</button></form>
         <article class="card"><h4>Total gaji per karyawan</h4>${ledger}</article>
       </section>
       <section class="card section-gap"><div class="section-title-row"><div><h4>Saldo awal gaji</h4><p class="muted employee-section-copy">Catatan hak dan pengambilan sebelum sistem aktif. Tidak mengurangi laba harian.</p></div><button class="button primary small" data-action="add-opening-balance" data-admin-action>Tambah saldo awal</button></div><div class="table-wrap"><table><thead><tr><th>Tanggal efektif</th><th>Karyawan</th><th>Hak gaji lama</th><th>Bonus lama</th><th>Sudah diambil</th><th>Sisa awal</th><th>Catatan</th><th>Aksi</th></tr></thead><tbody>${openingRows}</tbody></table></div></section>
@@ -524,7 +551,7 @@
     if ($("#allocationWithdrawalForm")) $("#allocationWithdrawalForm").onsubmit = saveAllocationWithdrawal;
     if ($("#reportMonth")) $("#reportMonth").onchange = event => { state.reportMonth = event.target.value || localDate().slice(0, 7); renderPage(); };
     if ($("#mySalaryMonth")) $("#mySalaryMonth").onchange = event => { state.salaryMonth = event.target.value || localDate().slice(0, 7); renderPage(); };
-    $$(".salary-present, .salary-base, .salary-bonus").forEach(input => input.oninput = updateSalaryTotal);
+    $$(".salary-status, .salary-base, .salary-allowance, .salary-overtime, .salary-bonus, .salary-deduction").forEach(input => input.oninput = updateSalaryTotal);
     $$(".item-input, .unit-capital-input").forEach(input => input.oninput = updateProductCostPreview);
     $$(".payment-input").forEach(input => input.oninput = updatePaymentPreview);
     if ($("#salarySearch")) $("#salarySearch").oninput = filterSalaryHistory;
@@ -533,7 +560,15 @@
 
   function updateSalaryTotal(event) {
     const row = event.target.closest(".salary-line");
-    const total = $(".salary-present", row).checked ? num($(".salary-base", row).value) + num($(".salary-bonus", row).value) : 0;
+    if (!row?.dataset.employee) return;
+    const status = $(".salary-status", row)?.value || "hadir";
+    const paid = !["alpa", "libur_tidak_dibayar"].includes(status);
+    const base = paid ? num($(".salary-base", row).value) : 0;
+    const allowance = paid ? num($(".salary-allowance", row).value) : 0;
+    const overtime = paid ? num($(".salary-overtime", row).value) : 0;
+    const bonus = paid ? num($(".salary-bonus", row).value) : 0;
+    const deduction = num($(".salary-deduction", row).value);
+    const total = Math.max(0, base + allowance + overtime + bonus - deduction);
     $(".salary-total", row).textContent = rupiah(total);
   }
   function updateProductCostPreview(event) {
@@ -582,6 +617,10 @@
       if (action === "close-book") await closeBook();
       if (action === "reopen-book") await reopenBook();
       if (action === "add-salary") await addSalaryQuick();
+      if (action === "mark-all-present") {
+        $$(".salary-status").forEach(input => { input.value = "hadir"; input.dispatchEvent(new Event("input", { bubbles: true })); });
+        toast("Semua karyawan ditandai hadir.");
+      }
       if (action === "edit-salary") await editSalary(id);
       if (action === "delete-salary") await deleteSalary(id);
       if (action === "edit-withdrawal") await editWithdrawal(id);
@@ -781,10 +820,15 @@
     ensureUnlocked();
     const rows = $$(".salary-line").map(element => {
       const employee = state.employees.find(row => row.id === element.dataset.employee);
-      const present = $(".salary-present", element).checked;
+      const attendanceStatus = $(".salary-status", element).value;
+      const present = !["alpa", "libur_tidak_dibayar"].includes(attendanceStatus);
       const base = present ? num($(".salary-base", element).value) : 0;
+      const allowance = present ? num($(".salary-allowance", element).value) : 0;
+      const overtime = present ? num($(".salary-overtime", element).value) : 0;
       const bonus = present ? num($(".salary-bonus", element).value) : 0;
-      return { salary_date: currentDate(), employee_id: employee.id, employee_name: employee.name, present, base_salary: base, bonus, total: base + bonus, notes: $(".salary-notes", element).value.trim(), updated_at: new Date().toISOString() };
+      const deduction = num($(".salary-deduction", element).value);
+      const total = Math.max(0, base + allowance + overtime + bonus - deduction);
+      return { salary_date: currentDate(), employee_id: employee.id, employee_name: employee.name, present, attendance_status: attendanceStatus, base_salary: base, allowance, overtime, bonus, deduction, total, notes: $(".salary-notes", element).value.trim(), updated_at: new Date().toISOString() };
     });
     setLoading(true);
     try { assertResult(await db.from("salaries").upsert(rows, { onConflict: "salary_date,employee_id" })); toast("Gaji dan bonus tersimpan."); await loadData(); }
@@ -800,7 +844,7 @@
     if (amount > num(ledger?.balance)) return toast("Nominal melebihi sisa gaji karyawan.", "error");
     setLoading(true);
     try {
-      assertResult(await db.from("salary_withdrawals").insert({ withdrawal_date: currentDate(), employee_id: employee.id, employee_name: employee.name, amount, notes: $("#withdrawNotes").value.trim() }));
+      assertResult(await db.from("salary_withdrawals").insert({ withdrawal_date: currentDate(), employee_id: employee.id, employee_name: employee.name, amount, payment_method: $("#withdrawMethod").value, reference_number: $("#withdrawReference").value.trim(), notes: $("#withdrawNotes").value.trim(), created_by: state.profile.id }));
       toast("Pengambilan gaji dicatat."); await loadData();
     } catch (error) { toast(error.message, "error"); } finally { setLoading(false); }
   }
@@ -827,13 +871,18 @@
     const row = state.salaries.find(item => item.id === id); if (!row) return;
     ensureDateUnlocked(row.salary_date);
     const data = await openFormModal(`Edit gaji ${row.employee_name}`, [
+      { name: "attendance_status", label: "Status kehadiran", type: "select", value: row.attendance_status || "hadir", required: true, options: [{value:"hadir",label:"Hadir"},{value:"setengah_hari",label:"Setengah hari"},{value:"izin",label:"Izin dibayar"},{value:"sakit",label:"Sakit dibayar"},{value:"libur_dibayar",label:"Libur dibayar"},{value:"libur_tidak_dibayar",label:"Libur tidak dibayar"},{value:"alpa",label:"Alpa"}] },
       { name: "base_salary", label: "Gaji pokok", type: "number", min: 0, value: row.base_salary, required: true },
+      { name: "allowance", label: "Uang makan/transport", type: "number", min: 0, value: row.allowance || 0, required: true },
+      { name: "overtime", label: "Lembur", type: "number", min: 0, value: row.overtime || 0, required: true },
       { name: "bonus", label: "Bonus", type: "number", min: 0, value: row.bonus, required: true },
+      { name: "deduction", label: "Potongan", type: "number", min: 0, value: row.deduction || 0, required: true },
       { name: "notes", label: "Catatan", type: "textarea", value: row.notes || "", full: true }
     ]);
     if (!data) return;
-    const base = num(data.base_salary), bonus = num(data.bonus);
-    assertResult(await db.from("salaries").update({ base_salary: base, bonus, total: base + bonus, notes: data.notes.trim(), updated_at: new Date().toISOString() }).eq("id", id));
+    const paid = !["alpa", "libur_tidak_dibayar"].includes(data.attendance_status);
+    const base = paid ? num(data.base_salary) : 0, allowance = paid ? num(data.allowance) : 0, overtime = paid ? num(data.overtime) : 0, bonus = paid ? num(data.bonus) : 0, deduction = num(data.deduction);
+    assertResult(await db.from("salaries").update({ attendance_status: data.attendance_status, present: paid, base_salary: base, allowance, overtime, bonus, deduction, total: Math.max(0, base + allowance + overtime + bonus - deduction), notes: data.notes.trim(), updated_at: new Date().toISOString() }).eq("id", id));
     toast("Riwayat gaji diperbarui."); await loadData();
   }
 
@@ -848,10 +897,15 @@
     ensureDateUnlocked(row.withdrawal_date);
     const data = await openFormModal(`Edit pengambilan ${row.employee_name}`, [
       { name: "amount", label: "Nominal pengambilan", type: "number", min: 1, value: row.amount, required: true },
+      { name: "payment_method", label: "Metode pembayaran", type: "select", value: row.payment_method || "cash", options: [{value:"cash",label:"Tunai"},{value:"transfer",label:"Transfer"},{value:"qris",label:"QRIS"}] },
+      { name: "reference_number", label: "Nomor referensi", value: row.reference_number || "" },
       { name: "notes", label: "Catatan", type: "textarea", value: row.notes || "", full: true }
     ]);
     if (!data) return;
-    assertResult(await db.from("salary_withdrawals").update({ amount: num(data.amount), notes: data.notes.trim() }).eq("id", id));
+    const ledger = salaryLedger().find(item => item.employee_id === row.employee_id);
+    const maximum = num(ledger?.balance) + num(row.amount);
+    if (num(data.amount) > maximum) throw new Error(`Nominal melebihi saldo yang tersedia (${rupiah(maximum)}).`);
+    assertResult(await db.from("salary_withdrawals").update({ amount: num(data.amount), payment_method: data.payment_method, reference_number: data.reference_number.trim(), notes: data.notes.trim() }).eq("id", id));
     toast("Pengambilan gaji diperbarui."); await loadData();
   }
 
