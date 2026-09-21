@@ -11,7 +11,8 @@
     expenses: [], rules: [], reports: [], profile: null, profiles: [], categories: [], audits: [], openingBalances: [],
     cash: [], allocationWithdrawals: [], monthlyClosings: [], reportMonth: localDate().slice(0, 7),
     salaryMonth: localDate().slice(0, 7), salaryTab: "daily", salaryHistoryEmployee: null, salaryHistoryPage: 1, salaryHistoryPageSize: 10,
-    mySalaryPage: 1, mySalaryPageSize: 10, dashboardReportPage: 1, dashboardReportPageSize: 10, parsedImport: null
+    mySalaryPage: 1, mySalaryPageSize: 10, dashboardReportPage: 1, dashboardReportPageSize: 10,
+    expenseHistoryStart: "", expenseHistoryEnd: "", expenseHistoryPage: 1, expenseHistoryPageSize: 10, parsedImport: null
   };
 
   const titles = {
@@ -483,12 +484,22 @@
     const summary = calculation();
     const employeeOptions = activeEmployees().map(row => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join("");
     const categoryOptions = state.categories.filter(row => row.active).map(row => `<option value="${escapeHtml(row.name)}">${escapeHtml(row.name)}</option>`).join("");
-    const history = state.expenses.length ? [...state.expenses].sort(byNewest).map(row => `<tr><td>${formatDate(row.expense_date)}</td><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td><td><div class="button-row"><button class="button edit small" data-action="edit-expense" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-expense" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada riwayat pengeluaran.</td></tr>';
+    const filteredExpenses = [...state.expenses].filter(row => {
+      const date = String(row.expense_date || "").slice(0, 10);
+      return (!state.expenseHistoryStart || date >= state.expenseHistoryStart) && (!state.expenseHistoryEnd || date <= state.expenseHistoryEnd);
+    }).sort(byNewest);
+    const pageCount = Math.max(1, Math.ceil(filteredExpenses.length / state.expenseHistoryPageSize));
+    state.expenseHistoryPage = Math.min(Math.max(1, state.expenseHistoryPage), pageCount);
+    const start = (state.expenseHistoryPage - 1) * state.expenseHistoryPageSize;
+    const visibleExpenses = filteredExpenses.slice(start, start + state.expenseHistoryPageSize);
+    const history = visibleExpenses.length ? visibleExpenses.map(row => `<tr><td>${formatDate(row.expense_date)}</td><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td><td><div class="button-row"><button class="button edit small" data-action="edit-expense" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-expense" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Tidak ada pengeluaran pada rentang tanggal ini.</td></tr>';
+    const pages = Array.from({ length: pageCount }, (_, index) => index + 1).filter(page => page === 1 || page === pageCount || Math.abs(page - state.expenseHistoryPage) <= 1).map((page, index, list) => `${index && page - list[index - 1] > 1 ? '<span class="pagination-ellipsis">…</span>' : ""}<button class="ledger-page ${page === state.expenseHistoryPage ? "active" : ""}" data-expense-history-page="${page}">${page}</button>`).join("");
+    const filteredTotal = sum(filteredExpenses, "amount");
     return `
       <div class="page-head"><div><h3>Pengeluaran</h3><p>Semua pengeluaran mengurangi laba pada tanggal pencatatan.</p></div></div>
       <section class="grid metric-grid">${metric("Total hari ini", rupiah(summary.expenses), "negative")}${metric("Terkait karyawan", rupiah(summary.employeeExpenses))}${metric("Jumlah catatan", todayRows.length)}${metric("Tanggal", formatDate(currentDate()))}</section>
       <form id="expenseForm" class="card"><h4>Catat pengeluaran</h4><div class="notice">Memilih nama karyawan hanya menandai penerima atau pengguna dana. Catatan ini tetap berbeda dari gaji dan tidak mengurangi saldo gaji.</div><div class="form-grid"><div class="field"><label>Kategori</label><select id="expenseCategory" required>${categoryOptions || '<option value="Lainnya">Lainnya</option>'}</select></div><div class="field"><label>Karyawan (opsional)</label><select id="expenseEmployee"><option value="">Bukan pengeluaran karyawan</option>${employeeOptions}</select></div><div class="field"><label>Nominal</label><input id="expenseAmount" type="number" min="1" required></div><div class="field"><label>Keterangan</label><input id="expenseDescription" placeholder="Catatan penggunaan dana"></div></div><button class="button primary section-gap" type="submit">Simpan pengeluaran</button></form>
-      <section class="card section-gap"><h4>Riwayat semua pengeluaran</h4><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Aksi</th></tr></thead><tbody>${history}</tbody></table></div></section>`;
+      <section class="card section-gap"><div class="section-title-row"><div><h4>Riwayat semua pengeluaran</h4><p class="muted">Data diurutkan dari tanggal terbaru.</p></div></div><div class="expense-history-filter"><label class="field"><span>Dari tanggal</span><input id="expenseHistoryStart" type="date" value="${state.expenseHistoryStart}" max="${state.expenseHistoryEnd || ""}"></label><label class="field"><span>Sampai tanggal</span><input id="expenseHistoryEnd" type="date" value="${state.expenseHistoryEnd}" min="${state.expenseHistoryStart || ""}"></label><label class="field ledger-page-size"><span>Baris</span><select id="expenseHistoryPageSize"><option value="10" ${state.expenseHistoryPageSize === 10 ? "selected" : ""}>10</option><option value="20" ${state.expenseHistoryPageSize === 20 ? "selected" : ""}>20</option><option value="50" ${state.expenseHistoryPageSize === 50 ? "selected" : ""}>50</option></select></label><button id="resetExpenseHistory" class="button edit" type="button">Reset tanggal</button></div><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Aksi</th></tr></thead><tbody>${history}</tbody><tfoot><tr class="table-total-row"><td colspan="5">Total hasil filter</td><td><strong>${rupiah(filteredTotal)}</strong></td><td></td></tr></tfoot></table></div><div class="ledger-pagination"><span>Menampilkan ${filteredExpenses.length ? start + 1 : 0}–${Math.min(start + state.expenseHistoryPageSize, filteredExpenses.length)} dari ${filteredExpenses.length} pengeluaran</span><div><button class="ledger-page" data-expense-history-page="${Math.max(1, state.expenseHistoryPage - 1)}" ${state.expenseHistoryPage === 1 ? "disabled" : ""}>Sebelumnya</button>${pages}<button class="ledger-page" data-expense-history-page="${Math.min(pageCount, state.expenseHistoryPage + 1)}" ${state.expenseHistoryPage === pageCount ? "disabled" : ""}>Berikutnya</button></div></div></section>`;
   }
 
   function monthlyData() {
@@ -589,6 +600,19 @@
     if ($("#salaryForm")) $("#salaryForm").onsubmit = saveSalaries;
     if ($("#withdrawalForm")) $("#withdrawalForm").onsubmit = saveWithdrawal;
     if ($("#expenseForm")) $("#expenseForm").onsubmit = saveExpense;
+    if ($("#expenseHistoryStart")) $("#expenseHistoryStart").onchange = event => { state.expenseHistoryStart = event.target.value; state.expenseHistoryPage = 1; renderPage(); };
+    if ($("#expenseHistoryEnd")) $("#expenseHistoryEnd").onchange = event => { state.expenseHistoryEnd = event.target.value; state.expenseHistoryPage = 1; renderPage(); };
+    if ($("#resetExpenseHistory")) $("#resetExpenseHistory").onclick = () => { state.expenseHistoryStart = ""; state.expenseHistoryEnd = ""; state.expenseHistoryPage = 1; renderPage(); };
+    $$('[data-expense-history-page]').forEach(button => button.onclick = () => {
+      if (button.disabled) return;
+      state.expenseHistoryPage = num(button.dataset.expenseHistoryPage) || 1;
+      renderPage();
+    });
+    if ($("#expenseHistoryPageSize")) $("#expenseHistoryPageSize").onchange = event => {
+      state.expenseHistoryPageSize = num(event.target.value) || 10;
+      state.expenseHistoryPage = 1;
+      renderPage();
+    };
     if ($("#settingsForm")) $("#settingsForm").onsubmit = saveSettings;
     if ($("#employeeForm")) $("#employeeForm").onsubmit = saveEmployee;
     if ($("#ruleForm")) $("#ruleForm").onsubmit = saveRule;
