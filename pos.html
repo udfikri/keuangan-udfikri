@@ -3,13 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Sistem hasil penjualan harian UD Fikri">
+  <meta name="description" content="Pos pembagian keuangan UD Fikri">
   <meta name="theme-color" content="#153f40">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="UD Fikri">
-  <title>UD Fikri — Hasil Penjualan</title>
+  <title>UD Fikri — Pos Pembagian</title>
   <link rel="icon" type="image/png" href="assets/logo-ud-fikri.png">
   <link rel="apple-touch-icon" href="assets/pwa-icon-180.png">
   <link rel="manifest" href="manifest.webmanifest">
@@ -18,12 +18,11 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 </head>
-<body>
+<body data-page="allocations">
   <section id="loginScreen" class="login-screen">
     <form id="loginForm" class="login-card">
       <div class="logo-panel"><img src="assets/logo-ud-fikri.png" alt="Logo UD Fikri"></div>
-      <h1>UD FIKRI</h1>
-      <p>Sistem hasil penjualan harian</p>
+      <h1>UD FIKRI</h1><p>Sistem hasil penjualan harian</p>
       <label>Email<input id="loginEmail" type="email" autocomplete="email" required placeholder="admin@udfikri.com"></label>
       <label>Password<input id="loginPassword" type="password" autocomplete="current-password" required placeholder="••••••••"></label>
       <button class="button primary full" type="submit">Masuk</button>
@@ -31,60 +30,35 @@
       <div id="loginMessage" class="form-message" role="alert"></div>
     </form>
   </section>
-
   <div id="appShell" class="app-shell hidden">
-    <header class="public-header">
-      <div class="header-inner">
-        <button class="header-brand" data-page="dashboard">
-          <img src="assets/logo-ud-fikri.png" alt="Logo UD Fikri">
-          <span><strong id="brandName">UD Fikri</strong><small>HASIL PENJUALAN HARIAN</small></span>
-        </button>
-        <button id="menuButton" class="mobile-menu" aria-label="Buka menu"><i class="fa-solid fa-bars"></i></button>
-        <nav id="sidebar" class="public-nav" aria-label="Menu utama">
+    <header class="public-header"><div class="header-inner">
+      <button class="header-brand" data-page="dashboard"><img src="assets/logo-ud-fikri.png" alt="Logo UD Fikri"><span><strong id="brandName">UD Fikri</strong><small>HASIL PENJUALAN HARIAN</small></span></button>
+      <button id="menuButton" class="mobile-menu" aria-label="Buka menu"><i class="fa-solid fa-bars"></i></button>
+      <nav id="sidebar" class="public-nav" aria-label="Menu utama">
         <button class="nav-item hidden" data-page="mySalary">Gaji Saya</button>
-        <button class="nav-item active" data-page="dashboard">Dashboard</button>
+        <button class="nav-item" data-page="dashboard">Dashboard</button>
         <button class="nav-item" data-page="sales">Import & Tutup Buku</button>
         <button class="nav-item" data-page="salary">Gaji Karyawan</button>
         <button class="nav-item" data-page="expenses">Pengeluaran</button>
-        <button class="nav-item" data-page="allocations">Pos Pembagian</button>
+        <button class="nav-item active" data-page="allocations">Pos Pembagian</button>
         <button class="nav-item" data-page="reports">Laporan & Kas</button>
         <button class="nav-item" data-page="master">Kelola Data</button>
-          <button id="logoutButton" class="nav-item logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button>
-        </nav>
-      </div>
-    </header>
-
+        <button id="logoutButton" class="nav-item logout"><i class="fa-solid fa-right-from-bracket"></i> Keluar</button>
+      </nav>
+    </div></header>
     <div class="workspace">
-      <header class="topbar">
-        <div><p class="eyebrow">UD FIKRI · <span id="userRole">VIEWER</span></p><h2 id="pageTitle">Dashboard</h2></div>
-        <label class="active-date">Tanggal aktif<input id="activeDate" type="date"></label>
-      </header>
+      <header class="topbar"><div><p class="eyebrow">UD FIKRI · <span id="userRole">VIEWER</span></p><h2 id="pageTitle">Pos Pembagian</h2></div><label class="active-date">Tanggal aktif<input id="activeDate" type="date"></label></header>
       <main id="mainContent" class="content" tabindex="-1"></main>
     </div>
   </div>
-
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <aside id="updateBanner" class="update-banner hidden" role="status" aria-live="polite">
-    <div><strong>Versi baru tersedia</strong><span>Perbarui aplikasi untuk memakai fitur terbaru.</span></div>
-    <button id="updateButton" class="button primary" type="button">Perbarui</button>
-  </aside>
+  <aside id="updateBanner" class="update-banner hidden" role="status" aria-live="polite"><div><strong>Versi baru tersedia</strong><span>Perbarui aplikasi untuk memakai fitur terbaru.</span></div><button id="updateButton" class="button primary" type="button">Perbarui</button></aside>
   <div id="loading" class="loading hidden"><div class="spinner"></div><span>Memuat data…</span></div>
-  <div id="formModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-    <form id="modalForm" class="modal-card">
-      <div class="modal-head"><div><p class="eyebrow">UD FIKRI</p><h3 id="modalTitle">Form Data</h3></div><button id="modalClose" class="modal-close" type="button" aria-label="Tutup">×</button></div>
-      <div id="modalFields" class="form-grid"></div>
-      <div class="modal-actions"><button class="button ghost" type="button" data-modal-cancel>Batal</button><button id="modalSubmit" class="button primary" type="submit">Simpan</button></div>
-    </form>
-  </div>
-  <div id="detailModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
-    <div class="modal-card detail-modal-card">
-      <div class="modal-head"><div><p class="eyebrow">UD FIKRI</p><h3 id="detailTitle">Detail laporan</h3></div><button id="detailClose" class="modal-close" type="button" aria-label="Tutup">×</button></div>
-      <div id="detailContent"></div>
-    </div>
-  </div>
-
+  <div id="formModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="modalTitle"><form id="modalForm" class="modal-card"><div class="modal-head"><div><p class="eyebrow">UD FIKRI</p><h3 id="modalTitle">Form Data</h3></div><button id="modalClose" class="modal-close" type="button" aria-label="Tutup">×</button></div><div id="modalFields" class="form-grid"></div><div class="modal-actions"><button class="button ghost" type="button" data-modal-cancel>Batal</button><button id="modalSubmit" class="button primary" type="submit">Simpan</button></div></form></div>
+  <div id="detailModal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="detailTitle"><div class="modal-card detail-modal-card"><div class="modal-head"><div><p class="eyebrow">UD FIKRI</p><h3 id="detailTitle">Detail laporan</h3></div><button id="detailClose" class="modal-close" type="button" aria-label="Tutup">×</button></div><div id="detailContent"></div></div></div>
   <script src="js/config.js?v=22"></script>
   <script src="js/supabase.js?v=22"></script>
+  <script src="js/pages/pos.js?v=37"></script>
   <script src="js/app.js?v=37"></script>
 </body>
 </html>

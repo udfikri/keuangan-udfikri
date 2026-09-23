@@ -465,6 +465,14 @@ th, td { vertical-align: middle; }
 .funding-pill { display:inline-flex; align-items:center; padding:.35rem .55rem; border-radius:999px; font-size:.68rem; font-weight:800; white-space:nowrap; }
 .funding-pill.daily { color:#7f5520; background:#fff4dd; }
 .funding-pill.allocation { color:#176853; background:#e4f3ed; }
+.allocation-main-tabs { margin-top:0; }
+.allocation-main-tabs .salary-tab { display:inline-flex; align-items:center; justify-content:center; gap:.45rem; min-width:170px; }
+.allocation-overview,.allocation-withdraw-layout { animation:salaryPanelIn .22s ease; }
+.allocation-mini-list { display:grid; gap:.6rem; margin-top:.8rem; }
+.allocation-mini-list > div { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.8rem .9rem; border:1px solid #dfe9e6; border-radius:.75rem; background:#f9fcfb; }
+.allocation-mini-list span { color:#52736c; font-size:.8rem; font-weight:700; }
+.allocation-mini-list strong { color:#176853; white-space:nowrap; }
+.allocation-ledger-summary { grid-template-columns:1.15fr 1fr 1fr 1.15fr; }
 .dashboard-seven-metrics { grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; }
 .dashboard-seven-metrics .metric:last-child { grid-column:span 2; background:linear-gradient(135deg,#effaf5,#fff); border-color:#b9ddcf; }
 .dashboard-tables { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; }
@@ -497,7 +505,7 @@ th, td { vertical-align: middle; }
 .closing-footer p i { margin-right:.35rem; color:#368873; }
 .closing-button { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:44px; }
 @media(max-width:1180px){.salary-entry-card{grid-template-columns:repeat(4,minmax(130px,1fr));}.salary-person{grid-column:1/-1}.salary-note{grid-column:span 2}}
-@media(max-width:900px){.salary-live-summary{grid-template-columns:repeat(3,1fr)}.salary-live-summary div:nth-child(3){border-right:0}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-summary .balance{grid-column:1/-1}.dashboard-seven-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.closing-flow{grid-template-columns:1fr 1fr}.closing-operator{display:none}.closing-item.result{grid-column:1/-1}.allocation-balance-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){.salary-live-summary{grid-template-columns:repeat(3,1fr)}.salary-live-summary div:nth-child(3){border-right:0}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-summary .balance{grid-column:1/-1}.dashboard-seven-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.closing-flow{grid-template-columns:1fr 1fr}.closing-operator{display:none}.closing-item.result{grid-column:1/-1}.allocation-balance-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.allocation-ledger-summary{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.salary-hero{align-items:flex-start;flex-direction:column}.salary-hero-date{width:100%}.salary-entry-card{grid-template-columns:1fr 1fr}.salary-person,.salary-note{grid-column:1/-1}.salary-result{grid-column:1/-1}.sticky-form-action{position:static;align-items:stretch;flex-direction:column}.sticky-form-action .button{width:100%}.salary-live-summary{grid-template-columns:1fr 1fr}.salary-live-summary div{border-right:0;border-bottom:1px solid #dce9e6}.salary-live-summary .summary-grand{grid-column:1/-1}.salary-metrics{grid-template-columns:1fr 1fr}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-pagination{align-items:flex-start;flex-direction:column}.ledger-pagination>div{max-width:100%;overflow-x:auto}.dashboard-seven-metrics{grid-template-columns:1fr}.dashboard-seven-metrics .metric:last-child{grid-column:auto}.expense-history-filter{grid-template-columns:1fr 1fr}.expense-history-filter .button{width:100%}.closing-head,.closing-footer{align-items:stretch;flex-direction:column}.closing-status{align-self:flex-start}.closing-button{width:100%}.allocation-balance-grid{grid-template-columns:1fr 1fr}}
 
 @media (max-width: 600px) {
