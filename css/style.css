@@ -142,7 +142,7 @@ tr:last-child td { border-bottom: 0; }
 .payment-summary > div { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: .75rem; background: #fbfdfd; }
 .payment-summary span { color: var(--muted); font-size: .8rem; font-weight: 800; }
 .payment-summary strong { white-space: nowrap; }
-.turnover-recap { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.7rem; margin:0 0 1rem; }
+.turnover-recap { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.7rem; margin:0 0 1rem; }
 .turnover-recap > div { padding:.9rem 1rem; border:1px solid var(--line); border-radius:.8rem; background:#fbfdfd; }
 .turnover-recap span,.turnover-recap strong { display:block; }
 .turnover-recap span { color:var(--muted); font-size:.72rem; font-weight:800; text-transform:uppercase; }
