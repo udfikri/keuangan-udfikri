@@ -142,6 +142,19 @@
     };
   }
 
+  function accumulatedTurnover(payment, salary, expenses, posts = 0) {
+    const received = num(payment.total);
+    const salaryTotal = num(salary);
+    const expenseTotal = num(expenses);
+    const postTotal = num(posts);
+    const total = received + salaryTotal + expenseTotal + postTotal;
+    return { ...payment, received, salary: salaryTotal, expenses: expenseTotal, posts: postTotal, total, difference: payment.turnover - total };
+  }
+
+  function postAllocationTotal(summary) {
+    return (summary.allocations || []).filter(row => ["fixed", "percent"].includes(row.type) && row.target !== "owner" && !/pemilik/i.test(row.name)).reduce((total, row) => total + num(row.amount), 0);
+  }
+
   function calculation() {
     const imported = currentImport();
     const salaries = currentSalaries();
@@ -291,7 +304,7 @@
     const expenses = currentExpenses();
     const allocations = summary.allocations.filter(row => ["fixed", "percent"].includes(row.type));
     const postAllocations = allocations.filter(row => row.target !== "owner" && !/pemilik/i.test(row.name));
-    const totalPosts = postAllocations.reduce((total, row) => total + num(row.amount), 0);
+    const totalPosts = postAllocationTotal(summary);
     const netProfit = summary.grossProfit - summary.expenses - summary.salary - totalPosts;
     const salaryRows = salaries.length ? salaries.map(row => `<tr><td>${escapeHtml(row.employee_name)}</td><td>${escapeHtml(String(row.attendance_status || (row.present ? "hadir" : "alpa")).replaceAll("_", " "))}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(row.allowance)}</td><td>${rupiah(row.bonus)}</td><td>${rupiah(row.deduction)}</td><td><strong>${rupiah(row.total)}</strong></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Belum ada gaji pada tanggal ini.</td></tr>';
     const expenseRows = expenses.length ? expenses.map(row => `<tr><td>${escapeHtml(row.expense_type === "employee" ? "Karyawan" : "Operasional")}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td><strong>${rupiah(row.amount)}</strong></td></tr>`).join("") : '<tr><td colspan="5" class="empty">Belum ada pengeluaran pada tanggal ini.</td></tr>';
@@ -336,8 +349,9 @@
     const products = state.products.filter(row => row.report_date === currentDate());
     const summary = calculation();
     const payment = paymentSummary(imported);
-    const paymentStatus = turnoverStatus(payment);
-    const remainingTurnover = payment.total - summary.salary - summary.expenses;
+    const totalPosts = postAllocationTotal(summary);
+    const dailyTurnover = accumulatedTurnover(payment, summary.salary, summary.expenses, totalPosts);
+    const paymentStatus = turnoverStatus(dailyTurnover);
     const productRows = products.length
       ? products.map(row => `<tr data-product-row="${row.id}" data-sales="${num(row.sales)}"><td>${escapeHtml(row.product)}</td><td>${rupiah(row.sales)}</td><td class="item-column"><input class="item-input" data-id="${row.id}" type="number" step="0.01" min="0" value="${num(row.items)}"></td><td><input class="unit-capital-input" data-id="${row.id}" type="number" step="0.0001" min="0" value="${num(row.unit_capital)}"></td><td><span class="live-profit">${rupiah(row.profit)}</span></td><td class="capital-cell"><strong class="live-capital">${rupiah(row.capital)}</strong></td><td><div class="button-row"><button class="button edit small" data-action="edit-product" data-id="${row.id}">Edit</button><button class="button secondary small" data-action="save-item" data-id="${row.id}">Simpan hitungan</button><button class="button danger small" data-action="delete-product" data-id="${row.id}">Hapus</button></div></td></tr>`).join("")
       : '<tr><td colspan="7" class="empty">Belum ada produk pada tanggal ini.</td></tr>';
@@ -366,7 +380,7 @@
         <article class="card"><div class="section-title-row"><h4>Gaji Karyawan Hari Ini</h4><div class="button-row"><button class="button primary small" data-action="add-salary">Tambah</button><button class="button edit small" data-go="salary">Riwayat gaji</button></div></div><div class="table-wrap"><table><thead><tr><th>Status</th><th>Karyawan</th><th>Pokok</th><th>Tambahan</th><th>Potongan</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${salaryDeductions}</tbody><tfoot><tr class="table-total-row"><td colspan="5">Total gaji karyawan hari ini</td><td><strong>${rupiah(summary.salary)}</strong></td><td></td></tr></tfoot></table></div></article>
         <article class="card"><div class="section-title-row"><h4>Pengeluaran Hari Ini</h4><div class="button-row"><button class="button primary small" data-action="add-expense">Tambah</button><button class="button edit small" data-go="expenses">Riwayat pengeluaran</button></div></div><div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Catatan</th><th>Total</th><th>Aksi</th></tr></thead><tbody>${expenseDeductions}</tbody><tfoot><tr class="table-total-row"><td colspan="4">Total pengeluaran hari ini</td><td><strong>${rupiah(summary.expenses)}</strong></td><td></td></tr></tfoot></table></div></article>
       </section>
-      <section class="card section-gap"><div class="section-title-row"><div><h4>Rincian Omzet Harian</h4><p class="muted employee-section-copy">Tunai, transfer, dan QRIS membentuk total omzet. Gaji serta pengeluaran hari ini otomatis menjadi pengurang.</p></div></div>${imported ? `<form id="paymentForm"><div class="payment-grid"><div class="field"><label>Omzet menurut laporan</label><input id="paymentTurnover" type="number" value="${payment.turnover}" readonly></div><div class="field"><label>Tunai</label><input id="paymentCash" class="payment-input" type="number" min="0" value="${payment.cash}" required></div><div class="field"><label>Transfer</label><input id="paymentTransfer" class="payment-input" type="number" min="0" value="${payment.transfer}" required></div><div class="field"><label>QRIS</label><input id="paymentQris" class="payment-input" type="number" min="0" value="${payment.qris}" required></div></div><div class="payment-summary"><div><span>Total omzet</span><strong id="paymentTotal">${rupiah(payment.total)}</strong></div><div><span>Status omzet</span><strong id="paymentDifference" class="${paymentStatus.valueClass}">${paymentStatus.value}</strong></div></div><div class="turnover-recap"><div><span>Total omzet</span><strong id="turnoverRecapTotal">${rupiah(payment.total)}</strong></div><div><span>Gaji karyawan</span><strong class="negative">− ${rupiah(summary.salary)}</strong></div><div><span>Pengeluaran</span><strong class="negative">− ${rupiah(summary.expenses)}</strong></div><div class="balance"><span>Sisa omzet harian</span><strong id="remainingTurnover">${rupiah(remainingTurnover)}</strong></div></div><div id="paymentStatus" class="notice ${paymentStatus.noticeClass}">${paymentStatus.text}</div><div class="field"><label>Catatan omzet</label><input id="paymentNotes" value="${escapeHtml(payment.notes)}" placeholder="Wajib diisi jika total omzet kurang atau lebih"></div><button class="button primary section-gap" type="submit" ${locked ? "disabled" : ""}>Simpan rincian omzet</button></form>` : '<div class="empty">Import laporan Griyo Pos terlebih dahulu.</div>'}</section>
+      <section class="card section-gap"><div class="section-title-row"><div><h4>Rincian Omzet Harian</h4><p class="muted employee-section-copy">Gaji, pengeluaran, dan pos pembagian yang telah diambil dari omzet otomatis ditambahkan kembali ke penerimaan tunai, transfer, dan QRIS.</p></div></div>${imported ? `<form id="paymentForm"><div class="payment-grid"><div class="field"><label>Omzet menurut laporan</label><input id="paymentTurnover" type="number" value="${payment.turnover}" readonly></div><div class="field"><label>Tunai</label><input id="paymentCash" class="payment-input" type="number" min="0" value="${payment.cash}" required></div><div class="field"><label>Transfer</label><input id="paymentTransfer" class="payment-input" type="number" min="0" value="${payment.transfer}" required></div><div class="field"><label>QRIS</label><input id="paymentQris" class="payment-input" type="number" min="0" value="${payment.qris}" required></div></div><div class="payment-summary"><div><span>Total omzet harian</span><strong id="paymentTotal">${rupiah(dailyTurnover.total)}</strong></div><div><span>Status omzet</span><strong id="paymentDifference" class="${paymentStatus.valueClass}">${paymentStatus.value}</strong></div></div><div class="turnover-recap"><div><span>Tunai + Transfer + QRIS</span><strong id="turnoverRecapReceived">${rupiah(dailyTurnover.received)}</strong></div><div><span>Gaji karyawan</span><strong class="positive">+ ${rupiah(summary.salary)}</strong></div><div><span>Pengeluaran</span><strong class="positive">+ ${rupiah(summary.expenses)}</strong></div><div><span>Pos pembagian</span><strong class="positive">+ ${rupiah(totalPosts)}</strong></div><div class="balance"><span>Total omzet harian</span><strong id="accumulatedTurnover">${rupiah(dailyTurnover.total)}</strong></div></div><div id="paymentStatus" class="notice ${paymentStatus.noticeClass}">${paymentStatus.text}</div><div class="field"><label>Catatan omzet</label><input id="paymentNotes" value="${escapeHtml(payment.notes)}" placeholder="Wajib diisi jika total omzet kurang atau lebih"></div><button class="button primary section-gap" type="submit" ${locked ? "disabled" : ""}>Simpan rincian omzet</button></form>` : '<div class="empty">Import laporan Griyo Pos terlebih dahulu.</div>'}</section>
       <section class="card section-gap"><h4>Finalisasi laporan</h4><div class="notice ${summary.deficit > 0 ? "danger-note" : "info"}"><strong>${summary.deficit > 0 ? `Defisit ${rupiah(summary.deficit)}` : `Total potongan ${rupiah(summary.salary + summary.expenses + summary.fixedAllocations)}`}</strong><br>Gaji & bonus ${rupiah(summary.salary)} + semua pengeluaran ${rupiah(summary.expenses)} + alokasi tetap ${rupiah(summary.fixedAllocations)}.</div><p class="muted">Data gaji tetap masuk Riwayat Gaji. Data pengeluaran tetap masuk Riwayat Pengeluaran.</p><button class="button success" data-action="close-book" ${imported && !locked ? "" : "disabled"}>${report ? "Perbarui dan kunci kembali" : "Simpan dan kunci tutup buku"}</button></section>`;
   }
 
@@ -762,17 +776,20 @@
   function validatePayment(values, imported = currentImport()) {
     if (!values || [values.cash, values.transfer, values.qris].some(value => value < 0)) throw new Error("Nominal omzet tidak valid.");
     const payment = paymentSummary(imported, values);
-    if (Math.abs(payment.difference) > .01 && !payment.notes) throw new Error("Catatan wajib diisi jika total pembayaran berbeda dari omzet.");
-    return payment;
+    const summary = calculation();
+    const dailyTurnover = accumulatedTurnover(payment, summary.salary, summary.expenses, postAllocationTotal(summary));
+    if (Math.abs(dailyTurnover.difference) > .01 && !dailyTurnover.notes) throw new Error("Catatan wajib diisi jika total omzet harian kurang atau lebih dari omzet laporan.");
+    return dailyTurnover;
   }
   function updatePaymentPreview() {
     const values = paymentFormValues(); if (!values) return;
     const payment = paymentSummary(currentImport(), values);
-    const status = turnoverStatus(payment);
     const summary = calculation();
-    $("#paymentTotal").textContent = rupiah(payment.total);
-    $("#turnoverRecapTotal").textContent = rupiah(payment.total);
-    $("#remainingTurnover").textContent = rupiah(payment.total - summary.salary - summary.expenses);
+    const dailyTurnover = accumulatedTurnover(payment, summary.salary, summary.expenses, postAllocationTotal(summary));
+    const status = turnoverStatus(dailyTurnover);
+    $("#paymentTotal").textContent = rupiah(dailyTurnover.total);
+    $("#turnoverRecapReceived").textContent = rupiah(dailyTurnover.received);
+    $("#accumulatedTurnover").textContent = rupiah(dailyTurnover.total);
     $("#paymentDifference").textContent = status.value;
     $("#paymentDifference").className = status.valueClass;
     $("#paymentStatus").className = `notice ${status.noticeClass}`;
@@ -1364,6 +1381,8 @@
     const cash = state.cash.find(row => row.report_date === report.report_date);
     const allocations = (Array.isArray(report.allocation_json) ? report.allocation_json : []).filter(row => ["fixed", "percent"].includes(row.type));
     const payment = paymentSummary(report);
+    const reportPostTotal = allocations.filter(row => row.target !== "owner" && !/pemilik/i.test(row.name)).reduce((total, row) => total + num(row.amount), 0);
+    const dailyTurnover = accumulatedTurnover(payment, report.salary, report.expenses, reportPostTotal);
     const productRows = products.map(row => `<tr><td>${escapeHtml(row.product)}</td><td>${row.items}</td><td>${rupiah(row.unit_capital)}</td><td>${rupiah(row.capital)}</td><td>${rupiah(row.sales)}</td><td>${rupiah(row.profit)}</td></tr>`).join("") || '<tr><td colspan="6">Tidak ada produk.</td></tr>';
     const salaryRows = salaries.map(row => `<tr><td>${escapeHtml(row.employee_name)}</td><td>${escapeHtml(String(row.attendance_status || "hadir").replaceAll("_", " "))}</td><td>${rupiah(row.base_salary)}</td><td>${rupiah(num(row.allowance) + num(row.bonus))}</td><td>${rupiah(row.deduction)}</td><td>${rupiah(row.total)}</td><td>${escapeHtml(row.notes || "-")}</td></tr>`).join("") || '<tr><td colspan="7">Tidak ada gaji.</td></tr>';
     const expenseRows = expenses.map(row => `<tr><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td></tr>`).join("") || '<tr><td colspan="4">Tidak ada pengeluaran.</td></tr>';
@@ -1372,7 +1391,7 @@
       <div class="detail-summary"><div><span>Penjualan</span><strong>${rupiah(report.product_sales)}</strong></div><div><span>Modal</span><strong>${rupiah(report.capital)}</strong></div><div><span>Laba</span><strong>${rupiah(report.gross_profit)}</strong></div><div><span>Total alokasi</span><strong>${rupiah(num(report.fixed_allocations) + num(report.percentage_allocations))}</strong></div><div><span>Pemilik</span><strong>${rupiah(report.owner_result)}</strong></div></div>
       <div class="detail-meta"><span><b>Status:</b> ${report.book_status === "closed" ? "Ditutup" : "Dibuka kembali"}</span><span><b>Ditutup oleh:</b> ${escapeHtml(userName(report.closed_by))}</span><span><b>Waktu tutup:</b> ${formatTimestamp(report.closed_at)}</span>${report.reopen_reason ? `<span><b>Alasan dibuka:</b> ${escapeHtml(report.reopen_reason)}</span><span><b>Dibuka oleh:</b> ${escapeHtml(userName(report.reopened_by))}</span>` : ""}</div>
       <h4>Produk terjual</h4><div class="table-wrap"><table><thead><tr><th>Produk</th><th>Item</th><th>Modal/satuan</th><th>Modal total</th><th>Penjualan</th><th>Laba</th></tr></thead><tbody>${productRows}</tbody></table></div>
-      <h4>Rincian omzet harian</h4><div class="detail-meta"><span><b>Omzet laporan:</b> ${rupiah(payment.turnover)}</span><span><b>Tunai:</b> ${rupiah(payment.cash)}</span><span><b>Transfer:</b> ${rupiah(payment.transfer)}</span><span><b>QRIS:</b> ${rupiah(payment.qris)}</span><span><b>Total omzet:</b> ${rupiah(payment.total)}</span><span><b>Status omzet:</b> ${turnoverStatus(payment).value}</span><span><b>Gaji karyawan:</b> ${rupiah(report.salary)}</span><span><b>Pengeluaran:</b> ${rupiah(report.expenses)}</span><span><b>Sisa omzet:</b> ${rupiah(payment.total - num(report.salary) - num(report.expenses))}</span><span><b>Catatan:</b> ${escapeHtml(payment.notes || (report.payment_recorded ? "-" : "Belum dicatat"))}</span></div>
+      <h4>Rincian omzet harian</h4><div class="detail-meta"><span><b>Omzet laporan:</b> ${rupiah(payment.turnover)}</span><span><b>Tunai:</b> ${rupiah(payment.cash)}</span><span><b>Transfer:</b> ${rupiah(payment.transfer)}</span><span><b>QRIS:</b> ${rupiah(payment.qris)}</span><span><b>Penerimaan tercatat:</b> ${rupiah(dailyTurnover.received)}</span><span><b>Gaji karyawan:</b> + ${rupiah(report.salary)}</span><span><b>Pengeluaran:</b> + ${rupiah(report.expenses)}</span><span><b>Pos pembagian:</b> + ${rupiah(reportPostTotal)}</span><span><b>Total omzet harian:</b> ${rupiah(dailyTurnover.total)}</span><span><b>Status omzet:</b> ${turnoverStatus(dailyTurnover).value}</span><span><b>Catatan:</b> ${escapeHtml(payment.notes || (report.payment_recorded ? "-" : "Belum dicatat"))}</span></div>
       <div class="grid two section-gap"><div><h4>Gaji karyawan</h4><div class="table-wrap"><table><thead><tr><th>Karyawan</th><th>Status</th><th>Pokok</th><th>Tambahan</th><th>Potongan</th><th>Total</th><th>Catatan</th></tr></thead><tbody>${salaryRows}</tbody></table></div></div><div><h4>Pengeluaran</h4><div class="table-wrap"><table><thead><tr><th>Kategori</th><th>Karyawan</th><th>Catatan</th><th>Total</th></tr></thead><tbody>${expenseRows}</tbody></table></div></div></div>
       <div class="grid two section-gap"><div><h4>Alokasi</h4><div class="table-wrap"><table><thead><tr><th>Nama</th><th>Jenis</th><th>Nominal</th></tr></thead><tbody>${allocationRows}</tbody></table></div></div><div><h4>Pencocokan kas</h4><div class="detail-meta"><span><b>Menurut sistem:</b> ${rupiah(cash?.expected_cash)}</span><span><b>Kas aktual:</b> ${rupiah(cash?.actual_cash)}</span><span><b>Selisih:</b> ${rupiah(cash?.difference)}</span><span><b>Catatan:</b> ${escapeHtml(cash?.notes || "-")}</span></div></div></div>`;
   }
