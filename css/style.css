@@ -455,9 +455,36 @@ th, td { vertical-align: middle; }
 .dashboard-seven-metrics .metric:last-child { grid-column:span 2; background:linear-gradient(135deg,#effaf5,#fff); border-color:#b9ddcf; }
 .dashboard-tables { display:grid; grid-template-columns:minmax(0,1fr); gap:1rem; }
 .dashboard-tables .card { min-width:0; }
+.closing-card { overflow:hidden; border-color:#cfe1dc; background:linear-gradient(145deg,#fff 0%,#f7fbfa 100%); }
+.closing-head { display:flex; justify-content:space-between; align-items:flex-start; gap:1.5rem; margin-bottom:1.15rem; }
+.closing-head h4 { margin:.18rem 0 .35rem; font-size:1.2rem; }
+.closing-head p { max-width:720px; margin:0; color:var(--muted); font-size:.86rem; }
+.closing-eyebrow { color:#258268; font-size:.68rem; font-weight:900; letter-spacing:.12em; text-transform:uppercase; }
+.closing-status { display:inline-flex; align-items:center; gap:.45rem; flex:0 0 auto; padding:.55rem .8rem; border-radius:999px; color:#176853; background:#e5f4ee; font-size:.75rem; font-weight:900; }
+.closing-card.is-deficit .closing-status { color:#a63737; background:#fff0f0; }
+.closing-flow { display:grid; grid-template-columns:minmax(125px,1.1fr) auto minmax(115px,1fr) auto minmax(115px,1fr) auto minmax(115px,1fr) auto minmax(135px,1.1fr); align-items:center; gap:.55rem; }
+.closing-item { min-width:0; padding:.9rem 1rem; border:1px solid #dce9e6; border-radius:.85rem; background:#fff; }
+.closing-item span,.closing-item strong { display:block; }
+.closing-item span { color:var(--muted); font-size:.68rem; font-weight:800; text-transform:uppercase; }
+.closing-item strong { margin-top:.32rem; color:#173e3e; font-size:1rem; white-space:nowrap; }
+.closing-item.source { border-color:#b9ddcf; background:#eef8f4; }
+.closing-item.result { color:#fff; border-color:#176853; background:linear-gradient(135deg,#176853,#29916e); box-shadow:0 9px 20px rgba(23,104,83,.16); }
+.closing-item.result span { color:#c9eee1; }
+.closing-item.result strong { color:#fff; font-size:1.12rem; }
+.closing-card.is-deficit .closing-item.result { border-color:#b94444; background:linear-gradient(135deg,#a93737,#d45b55); box-shadow:0 9px 20px rgba(169,55,55,.16); }
+.closing-operator { color:#7a9690; font-size:1.2rem; font-weight:900; text-align:center; }
+.closing-message { display:flex; align-items:flex-start; gap:.75rem; margin-top:1rem; padding:.9rem 1rem; border-radius:.85rem; color:#205f59; background:#eaf6f1; }
+.closing-message > i { margin-top:.15rem; }
+.closing-message strong,.closing-message p { display:block; }
+.closing-message p { margin:.2rem 0 0; font-size:.82rem; opacity:.86; }
+.closing-card.is-deficit .closing-message { color:#9b3030; background:#fff0f0; }
+.closing-footer { display:flex; justify-content:space-between; align-items:center; gap:1rem; margin-top:1rem; padding-top:1rem; border-top:1px solid #dce9e6; }
+.closing-footer p { margin:0; color:var(--muted); font-size:.8rem; }
+.closing-footer p i { margin-right:.35rem; color:#368873; }
+.closing-button { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; min-height:44px; }
 @media(max-width:1180px){.salary-entry-card{grid-template-columns:repeat(4,minmax(130px,1fr));}.salary-person{grid-column:1/-1}.salary-note{grid-column:span 2}}
-@media(max-width:900px){.salary-live-summary{grid-template-columns:repeat(3,1fr)}.salary-live-summary div:nth-child(3){border-right:0}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-summary .balance{grid-column:1/-1}.dashboard-seven-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(max-width:700px){.salary-hero{align-items:flex-start;flex-direction:column}.salary-hero-date{width:100%}.salary-entry-card{grid-template-columns:1fr 1fr}.salary-person,.salary-note{grid-column:1/-1}.salary-result{grid-column:1/-1}.sticky-form-action{position:static;align-items:stretch;flex-direction:column}.sticky-form-action .button{width:100%}.salary-live-summary{grid-template-columns:1fr 1fr}.salary-live-summary div{border-right:0;border-bottom:1px solid #dce9e6}.salary-live-summary .summary-grand{grid-column:1/-1}.salary-metrics{grid-template-columns:1fr 1fr}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-pagination{align-items:flex-start;flex-direction:column}.ledger-pagination>div{max-width:100%;overflow-x:auto}.dashboard-seven-metrics{grid-template-columns:1fr}.dashboard-seven-metrics .metric:last-child{grid-column:auto}.expense-history-filter{grid-template-columns:1fr 1fr}.expense-history-filter .button{width:100%}}
+@media(max-width:900px){.salary-live-summary{grid-template-columns:repeat(3,1fr)}.salary-live-summary div:nth-child(3){border-right:0}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-summary .balance{grid-column:1/-1}.dashboard-seven-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.closing-flow{grid-template-columns:1fr 1fr}.closing-operator{display:none}.closing-item.result{grid-column:1/-1}}
+@media(max-width:700px){.salary-hero{align-items:flex-start;flex-direction:column}.salary-hero-date{width:100%}.salary-entry-card{grid-template-columns:1fr 1fr}.salary-person,.salary-note{grid-column:1/-1}.salary-result{grid-column:1/-1}.sticky-form-action{position:static;align-items:stretch;flex-direction:column}.sticky-form-action .button{width:100%}.salary-live-summary{grid-template-columns:1fr 1fr}.salary-live-summary div{border-right:0;border-bottom:1px solid #dce9e6}.salary-live-summary .summary-grand{grid-column:1/-1}.salary-metrics{grid-template-columns:1fr 1fr}.ledger-summary{grid-template-columns:1fr 1fr}.ledger-pagination{align-items:flex-start;flex-direction:column}.ledger-pagination>div{max-width:100%;overflow-x:auto}.dashboard-seven-metrics{grid-template-columns:1fr}.dashboard-seven-metrics .metric:last-child{grid-column:auto}.expense-history-filter{grid-template-columns:1fr 1fr}.expense-history-filter .button{width:100%}.closing-head,.closing-footer{align-items:stretch;flex-direction:column}.closing-status{align-self:flex-start}.closing-button{width:100%}}
 
 @media (max-width: 600px) {
   .salary-entry-scroll .salary-line { min-width: 700px; grid-template-columns: 7rem 4.8rem 6.7rem 5.8rem 6.8rem 8.5rem; }
