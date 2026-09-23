@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "ud-fikri-shell-v33";
+const CACHE_NAME = "ud-fikri-shell-v34";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -15,7 +15,7 @@ const APP_SHELL = [
   "./css/style.css?v=33",
   "./js/config.js?v=22",
   "./js/supabase.js?v=22",
-  "./js/app.js?v=33",
+  "./js/app.js?v=34",
   "./assets/logo-ud-fikri.png",
   "./assets/pwa-icon-180.png",
   "./assets/pwa-icon-192.png",
