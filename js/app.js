@@ -511,25 +511,33 @@
 
   function renderExpenses() {
     const todayRows = currentExpenses();
+    const todayAllocationRows = state.allocationWithdrawals.filter(row => row.withdrawal_date === currentDate());
     const summary = calculation();
     const employeeOptions = activeEmployees().map(row => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join("");
     const categoryOptions = state.categories.filter(row => row.active).map(row => `<option value="${escapeHtml(row.name)}">${escapeHtml(row.name)}</option>`).join("");
-    const filteredExpenses = [...state.expenses].filter(row => {
-      const date = String(row.expense_date || "").slice(0, 10);
+    const balances = allocationBalances();
+    const allocationCards = spendableAllocationRules().map(rule => balances.find(row => row.name === rule.name) || { name: rule.name, earned: 0, withdrawn: 0, balance: 0 }).map(row => `<article class="allocation-balance-card"><div class="allocation-card-head"><span>${escapeHtml(row.name)}</span><i class="fa-solid fa-wallet"></i></div><strong>${rupiah(row.balance)}</strong><div class="allocation-card-detail"><span>Terkumpul <b>${rupiah(row.earned)}</b></span><span>Terpakai <b>${rupiah(row.withdrawn)}</b></span></div></article>`).join("") || '<div class="empty allocation-empty">Belum ada pos pembagian aktif.</div>';
+    const combinedExpenses = [
+      ...state.expenses.map(row => ({ ...row, history_date: row.expense_date, funding_name: "Omzet Harian", history_source: "expense" })),
+      ...state.allocationWithdrawals.map(row => ({ ...row, history_date: row.withdrawal_date, funding_name: row.allocation_name, history_source: "allocation", category: row.category || "Pengambilan Pos", description: row.description || row.notes || "-", expense_type: row.expense_type || "operational" }))
+    ];
+    const filteredExpenses = combinedExpenses.filter(row => {
+      const date = String(row.history_date || "").slice(0, 10);
       return (!state.expenseHistoryStart || date >= state.expenseHistoryStart) && (!state.expenseHistoryEnd || date <= state.expenseHistoryEnd);
-    }).sort(byNewest);
+    }).sort((a, b) => String(b.history_date).localeCompare(String(a.history_date)));
     const pageCount = Math.max(1, Math.ceil(filteredExpenses.length / state.expenseHistoryPageSize));
     state.expenseHistoryPage = Math.min(Math.max(1, state.expenseHistoryPage), pageCount);
     const start = (state.expenseHistoryPage - 1) * state.expenseHistoryPageSize;
     const visibleExpenses = filteredExpenses.slice(start, start + state.expenseHistoryPageSize);
-    const history = visibleExpenses.length ? visibleExpenses.map(row => `<tr><td>${formatDate(row.expense_date)}</td><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td><td><div class="button-row"><button class="button edit small" data-action="edit-expense" data-id="${row.id}">Edit</button><button class="button danger small" data-action="delete-expense" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="7" class="empty">Tidak ada pengeluaran pada rentang tanggal ini.</td></tr>';
+    const history = visibleExpenses.length ? visibleExpenses.map(row => `<tr><td>${formatDate(row.history_date)}</td><td><span class="funding-pill ${row.history_source === "allocation" ? "allocation" : "daily"}">${escapeHtml(row.funding_name)}</span></td><td>${row.expense_type === "employee" ? "Karyawan" : "Operasional"}</td><td>${escapeHtml(row.employee_name || "-")}</td><td>${escapeHtml(row.category)}</td><td>${escapeHtml(row.description || "-")}</td><td>${rupiah(row.amount)}</td><td><div class="button-row"><button class="button edit small" data-action="${row.history_source === "allocation" ? "edit-allocation-expense" : "edit-expense"}" data-id="${row.id}">Edit</button><button class="button danger small" data-action="${row.history_source === "allocation" ? "delete-allocation-withdrawal" : "delete-expense"}" data-id="${row.id}">Hapus</button></div></td></tr>`).join("") : '<tr><td colspan="8" class="empty">Tidak ada pengeluaran pada rentang tanggal ini.</td></tr>';
     const pages = Array.from({ length: pageCount }, (_, index) => index + 1).filter(page => page === 1 || page === pageCount || Math.abs(page - state.expenseHistoryPage) <= 1).map((page, index, list) => `${index && page - list[index - 1] > 1 ? '<span class="pagination-ellipsis">…</span>' : ""}<button class="ledger-page ${page === state.expenseHistoryPage ? "active" : ""}" data-expense-history-page="${page}">${page}</button>`).join("");
     const filteredTotal = sum(filteredExpenses, "amount");
     return `
-      <div class="page-head"><div><h3>Pengeluaran</h3><p>Semua pengeluaran mengurangi laba pada tanggal pencatatan.</p></div></div>
-      <section class="grid metric-grid">${metric("Total hari ini", rupiah(summary.expenses), "negative")}${metric("Terkait karyawan", rupiah(summary.employeeExpenses))}${metric("Jumlah catatan", todayRows.length)}${metric("Tanggal", formatDate(currentDate()))}</section>
-      <form id="expenseForm" class="card"><h4>Catat pengeluaran</h4><div class="notice">Memilih nama karyawan hanya menandai penerima atau pengguna dana. Catatan ini tetap berbeda dari gaji dan tidak mengurangi saldo gaji.</div><div class="form-grid"><div class="field"><label>Kategori</label><select id="expenseCategory" required>${categoryOptions || '<option value="Lainnya">Lainnya</option>'}</select></div><div class="field"><label>Karyawan (opsional)</label><select id="expenseEmployee"><option value="">Bukan pengeluaran karyawan</option>${employeeOptions}</select></div><div class="field"><label>Nominal</label><input id="expenseAmount" type="number" min="1" required></div><div class="field"><label>Keterangan</label><input id="expenseDescription" placeholder="Catatan penggunaan dana"></div></div><button class="button primary section-gap" type="submit">Simpan pengeluaran</button></form>
-      <section class="card section-gap"><div class="section-title-row"><div><h4>Riwayat semua pengeluaran</h4><p class="muted">Data diurutkan dari tanggal terbaru.</p></div></div><div class="expense-history-filter"><label class="field"><span>Dari tanggal</span><input id="expenseHistoryStart" type="date" value="${state.expenseHistoryStart}" max="${state.expenseHistoryEnd || ""}"></label><label class="field"><span>Sampai tanggal</span><input id="expenseHistoryEnd" type="date" value="${state.expenseHistoryEnd}" min="${state.expenseHistoryStart || ""}"></label><label class="field ledger-page-size"><span>Baris</span><select id="expenseHistoryPageSize"><option value="10" ${state.expenseHistoryPageSize === 10 ? "selected" : ""}>10</option><option value="20" ${state.expenseHistoryPageSize === 20 ? "selected" : ""}>20</option><option value="50" ${state.expenseHistoryPageSize === 50 ? "selected" : ""}>50</option></select></label><button id="resetExpenseHistory" class="button edit" type="button">Reset tanggal</button></div><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Aksi</th></tr></thead><tbody>${history}</tbody><tfoot><tr class="table-total-row"><td colspan="5">Total hasil filter</td><td><strong>${rupiah(filteredTotal)}</strong></td><td></td></tr></tfoot></table></div><div class="ledger-pagination"><span>Menampilkan ${filteredExpenses.length ? start + 1 : 0}–${Math.min(start + state.expenseHistoryPageSize, filteredExpenses.length)} dari ${filteredExpenses.length} pengeluaran</span><div><button class="ledger-page" data-expense-history-page="${Math.max(1, state.expenseHistoryPage - 1)}" ${state.expenseHistoryPage === 1 ? "disabled" : ""}>Sebelumnya</button>${pages}<button class="ledger-page" data-expense-history-page="${Math.min(pageCount, state.expenseHistoryPage + 1)}" ${state.expenseHistoryPage === pageCount ? "disabled" : ""}>Berikutnya</button></div></div></section>`;
+      <div class="page-head"><div><h3>Pengeluaran</h3><p>Pengeluaran omzet mengurangi laba harian. Pengeluaran dari pos hanya mengurangi saldo pos yang dipilih.</p></div></div>
+      <section class="grid metric-grid">${metric("Dari omzet hari ini", rupiah(summary.expenses), "negative")}${metric("Dari pos hari ini", rupiah(sum(todayAllocationRows, "amount")))}${metric("Jumlah catatan", todayRows.length + todayAllocationRows.length)}${metric("Tanggal", formatDate(currentDate()))}</section>
+      <section class="card allocation-balance-section"><div class="section-title-row"><div><h4>Saldo Pos Pembagian</h4><p class="muted">Total saldo Tabungan Bapa, Tabungan Ema, Maintenance, dan pos aktif lainnya.</p></div><button class="button edit small" data-go="reports">Lihat laporan lengkap</button></div><div class="allocation-balance-grid">${allocationCards}</div></section>
+      <form id="expenseForm" class="card section-gap"><h4>Catat pengeluaran</h4><div class="notice info">Pilih sumber dana dengan benar. Pengeluaran dari pos tidak akan mengurangi laba harian lagi.</div><div class="form-grid"><div class="field"><label>Sumber dana</label><select id="expenseFunding" required>${expenseFundingOptions()}</select></div><div class="field"><label>Kategori</label><select id="expenseCategory" required>${categoryOptions || '<option value="Lainnya">Lainnya</option>'}</select></div><div class="field"><label>Karyawan (opsional)</label><select id="expenseEmployee"><option value="">Bukan pengeluaran karyawan</option>${employeeOptions}</select></div><div class="field"><label>Nominal</label><input id="expenseAmount" type="number" min="1" required></div><div class="field full"><label>Keterangan</label><input id="expenseDescription" placeholder="Catatan penggunaan dana"></div></div><button class="button primary section-gap" type="submit">Simpan pengeluaran</button></form>
+      <section class="card section-gap"><div class="section-title-row"><div><h4>Riwayat semua pengeluaran</h4><p class="muted">Data diurutkan dari tanggal terbaru dan dapat difilter berdasarkan tanggal.</p></div></div><div class="expense-history-filter"><label class="field"><span>Dari tanggal</span><input id="expenseHistoryStart" type="date" value="${state.expenseHistoryStart}" max="${state.expenseHistoryEnd || ""}"></label><label class="field"><span>Sampai tanggal</span><input id="expenseHistoryEnd" type="date" value="${state.expenseHistoryEnd}" min="${state.expenseHistoryStart || ""}"></label><label class="field ledger-page-size"><span>Baris</span><select id="expenseHistoryPageSize"><option value="10" ${state.expenseHistoryPageSize === 10 ? "selected" : ""}>10</option><option value="20" ${state.expenseHistoryPageSize === 20 ? "selected" : ""}>20</option><option value="50" ${state.expenseHistoryPageSize === 50 ? "selected" : ""}>50</option></select></label><button id="resetExpenseHistory" class="button edit" type="button">Reset tanggal</button></div><div class="table-wrap"><table><thead><tr><th>Tanggal</th><th>Sumber Dana</th><th>Jenis</th><th>Karyawan</th><th>Kategori</th><th>Keterangan</th><th>Nominal</th><th>Aksi</th></tr></thead><tbody>${history}</tbody><tfoot><tr class="table-total-row"><td colspan="6">Total hasil filter</td><td><strong>${rupiah(filteredTotal)}</strong></td><td></td></tr></tfoot></table></div><div class="ledger-pagination"><span>Menampilkan ${filteredExpenses.length ? start + 1 : 0}–${Math.min(start + state.expenseHistoryPageSize, filteredExpenses.length)} dari ${filteredExpenses.length} pengeluaran</span><div><button class="ledger-page" data-expense-history-page="${Math.max(1, state.expenseHistoryPage - 1)}" ${state.expenseHistoryPage === 1 ? "disabled" : ""}>Sebelumnya</button>${pages}<button class="ledger-page" data-expense-history-page="${Math.min(pageCount, state.expenseHistoryPage + 1)}" ${state.expenseHistoryPage === pageCount ? "disabled" : ""}>Berikutnya</button></div></div></section>`;
   }
 
   function monthlyData() {
@@ -564,6 +572,19 @@
       item.withdrawn += num(row.amount); map.set(row.allocation_name, item);
     });
     return [...map.values()].map(row => ({ ...row, balance: row.earned - row.withdrawn })).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  function spendableAllocationRules() {
+    return state.rules.filter(row => row.active && row.allocation_target !== "owner" && !/pemilik/i.test(row.name)).sort((a, b) => num(a.sort_order) - num(b.sort_order));
+  }
+
+  function allocationBalanceForRule(rule) {
+    return allocationBalances().find(row => row.name === rule?.name)?.balance || 0;
+  }
+
+  function expenseFundingOptions(selected = "daily") {
+    const daily = `<option value="daily" ${selected === "daily" ? "selected" : ""}>Omzet Harian</option>`;
+    return daily + spendableAllocationRules().map(rule => `<option value="allocation:${rule.id}" ${selected === `allocation:${rule.id}` ? "selected" : ""}>${escapeHtml(rule.name)} — saldo ${rupiah(allocationBalanceForRule(rule))}</option>`).join("");
   }
 
   function renderReports() {
@@ -630,6 +651,7 @@
     if ($("#salaryForm")) $("#salaryForm").onsubmit = saveSalaries;
     if ($("#withdrawalForm")) $("#withdrawalForm").onsubmit = saveWithdrawal;
     if ($("#expenseForm")) $("#expenseForm").onsubmit = saveExpense;
+    if ($("#expenseCategory") && $("#expenseFunding")) $("#expenseCategory").onchange = suggestExpenseFunding;
     if ($("#expenseHistoryStart")) $("#expenseHistoryStart").onchange = event => { state.expenseHistoryStart = event.target.value; state.expenseHistoryPage = 1; renderPage(); };
     if ($("#expenseHistoryEnd")) $("#expenseHistoryEnd").onchange = event => { state.expenseHistoryEnd = event.target.value; state.expenseHistoryPage = 1; renderPage(); };
     if ($("#resetExpenseHistory")) $("#resetExpenseHistory").onclick = () => { state.expenseHistoryStart = ""; state.expenseHistoryEnd = ""; state.expenseHistoryPage = 1; renderPage(); };
@@ -698,6 +720,14 @@
     const total = Math.max(0, base + allowance + bonus - deduction);
     $(".salary-total", row).textContent = rupiah(total);
     updateSalaryFormSummary();
+  }
+
+  function suggestExpenseFunding(event) {
+    const category = String(event.target.value || "").toLowerCase();
+    const pattern = /bapa|bapak/.test(category) ? /bapa|bapak/i : /ema|emak|mama|ibu/.test(category) ? /ema|emak|mama|ibu/i : null;
+    if (!pattern) return;
+    const rule = spendableAllocationRules().find(row => pattern.test(row.name));
+    if (rule) $("#expenseFunding").value = `allocation:${rule.id}`;
   }
 
   function showSalaryTab(tab) {
@@ -823,6 +853,7 @@
       if (action === "delete-opening-balance") await deleteOpeningBalance(id);
       if (action === "add-expense") await addExpenseQuick();
       if (action === "edit-expense") await editExpense(id);
+      if (action === "edit-allocation-expense") await editAllocationExpense(id);
       if (action === "delete-expense") await deleteExpense(id);
       if (action === "edit-employee") await editEmployee(id);
       if (action === "delete-employee") await deleteRecord("employees", id, "Karyawan");
@@ -1157,9 +1188,10 @@
     ensureUnlocked();
     const employeeId = $("#expenseEmployee").value;
     const employee = state.employees.find(row => row.id === employeeId);
+    const funding = $("#expenseFunding").value;
     setLoading(true);
     try {
-      assertResult(await db.from("expenses").insert({ expense_date: currentDate(), expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null, category: $("#expenseCategory").value.trim(), description: $("#expenseDescription").value.trim(), amount: num($("#expenseAmount").value) }));
+      await insertFundedExpense({ funding, employee, category: $("#expenseCategory").value.trim(), description: $("#expenseDescription").value.trim(), amount: num($("#expenseAmount").value) });
       toast("Pengeluaran tersimpan."); await loadData();
     } catch (error) { toast(error.message, "error"); } finally { setLoading(false); }
   }
@@ -1167,6 +1199,7 @@
   async function addExpenseQuick() {
     ensureUnlocked();
     const data = await openFormModal("Tambah pengeluaran", [
+      { name: "funding", label: "Sumber dana", type: "select", required: true, value: "daily", options: [{ value: "daily", label: "Omzet Harian" }, ...spendableAllocationRules().map(rule => ({ value: `allocation:${rule.id}`, label: `${rule.name} — saldo ${rupiah(allocationBalanceForRule(rule))}` }))] },
       { name: "category", label: "Kategori", type: "select", required: true, options: state.categories.filter(row => row.active).map(row => ({ value: row.name, label: row.name })) },
       { name: "amount", label: "Nominal", type: "number", min: 1, required: true },
       { name: "employee_id", label: "Karyawan terkait", type: "select", options: [{ value: "", label: "Bukan pengeluaran karyawan" }, ...activeEmployees().map(row => ({ value: row.id, label: row.name }))] },
@@ -1174,8 +1207,22 @@
     ], "Tambah pengeluaran");
     if (!data) return;
     const employee = activeEmployees().find(row => row.id === data.employee_id);
-    assertResult(await db.from("expenses").insert({ expense_date: currentDate(), expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null, category: data.category.trim(), description: data.description.trim(), amount: num(data.amount) }));
+    await insertFundedExpense({ funding: data.funding, employee, category: data.category.trim(), description: data.description.trim(), amount: num(data.amount) });
     toast("Pengeluaran ditambahkan dan masuk ke riwayat pengeluaran."); await loadData();
+  }
+
+  async function insertFundedExpense({ funding, employee, category, description, amount }) {
+    if (amount <= 0) throw new Error("Nominal pengeluaran harus lebih dari nol.");
+    const common = { expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null, category, description };
+    if (!String(funding).startsWith("allocation:")) {
+      assertResult(await db.from("expenses").insert({ expense_date: currentDate(), ...common, amount }));
+      return;
+    }
+    const rule = state.rules.find(row => row.id === String(funding).slice(11));
+    if (!rule) throw new Error("Pos sumber dana tidak ditemukan.");
+    const balance = allocationBalanceForRule(rule);
+    if (amount > balance) throw new Error(`Nominal melebihi saldo ${rule.name} (${rupiah(balance)}).`);
+    assertResult(await db.from("allocation_withdrawals").insert({ withdrawal_date: currentDate(), allocation_rule_id: rule.id, allocation_name: rule.name, ...common, amount, notes: description }));
   }
 
   async function deleteExpense(id) {
@@ -1198,6 +1245,24 @@
     const employee = state.employees.find(item => item.id === data.employee_id);
     assertResult(await db.from("expenses").update({ category: data.category.trim(), amount: num(data.amount), description: data.description.trim(), expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null }).eq("id", id));
     toast("Pengeluaran diperbarui."); await loadData();
+  }
+
+  async function editAllocationExpense(id) {
+    const row = state.allocationWithdrawals.find(item => item.id === id); if (!row) return;
+    ensureDateUnlocked(row.withdrawal_date);
+    const data = await openFormModal(`Edit pengeluaran dari ${row.allocation_name}`, [
+      { name: "category", label: "Kategori", type: "select", value: row.category || "Lainnya", required: true, options: state.categories.map(item => ({ value: item.name, label: item.name })) },
+      { name: "amount", label: "Nominal", type: "number", min: 1, value: row.amount, required: true },
+      { name: "employee_id", label: "Karyawan terkait", type: "select", value: row.employee_id || "", options: [{ value: "", label: "Bukan pengeluaran karyawan" }, ...state.employees.map(item => ({ value: item.id, label: item.name }))] },
+      { name: "description", label: "Catatan", type: "textarea", value: row.description || row.notes || "", full: true }
+    ], "Simpan perubahan");
+    if (!data) return;
+    const rule = state.rules.find(item => item.id === row.allocation_rule_id) || state.rules.find(item => item.name === row.allocation_name);
+    const available = allocationBalanceForRule(rule) + num(row.amount);
+    if (num(data.amount) > available) throw new Error(`Nominal melebihi saldo ${row.allocation_name} (${rupiah(available)}).`);
+    const employee = state.employees.find(item => item.id === data.employee_id);
+    assertResult(await db.from("allocation_withdrawals").update({ category: data.category.trim(), amount: num(data.amount), description: data.description.trim(), notes: data.description.trim(), expense_type: employee ? "employee" : "operational", employee_id: employee?.id || null, employee_name: employee?.name || null }).eq("id", id));
+    toast("Pengeluaran dari pos diperbarui."); await loadData();
   }
 
   async function saveSettings(event) {
