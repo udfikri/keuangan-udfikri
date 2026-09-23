@@ -449,7 +449,7 @@ th, td { vertical-align: middle; }
 .table-total-row td { padding-top:.9rem; padding-bottom:.9rem; border-top:2px solid #bfd9d1; color:#153f40; background:#eef7f4; }
 .table-total-row td:first-child { text-align:right; font-weight:800; }
 .table-total-row strong { color:#176853; font-size:1rem; white-space:nowrap; }
-.expense-history-filter { display:grid; grid-template-columns:minmax(160px,1fr) minmax(160px,1fr) 100px auto; align-items:end; gap:.75rem; margin:1rem 0; }
+.expense-history-filter { display:grid; grid-template-columns:minmax(180px,1.15fr) minmax(150px,1fr) minmax(150px,1fr) 90px auto; align-items:end; gap:.75rem; margin:1rem 0; }
 .expense-history-filter .button { min-height:42px; }
 .allocation-balance-section { margin-bottom:0; background:linear-gradient(145deg,#fff,#f5faf8); }
 .allocation-balance-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.8rem; margin-top:1rem; }
@@ -467,11 +467,7 @@ th, td { vertical-align: middle; }
 .funding-pill.allocation { color:#176853; background:#e4f3ed; }
 .allocation-main-tabs { margin-top:0; }
 .allocation-main-tabs .salary-tab { display:inline-flex; align-items:center; justify-content:center; gap:.45rem; min-width:170px; }
-.allocation-overview,.allocation-withdraw-layout { animation:salaryPanelIn .22s ease; }
-.allocation-mini-list { display:grid; gap:.6rem; margin-top:.8rem; }
-.allocation-mini-list > div { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:.8rem .9rem; border:1px solid #dfe9e6; border-radius:.75rem; background:#f9fcfb; }
-.allocation-mini-list span { color:#52736c; font-size:.8rem; font-weight:700; }
-.allocation-mini-list strong { color:#176853; white-space:nowrap; }
+.allocation-overview { animation:salaryPanelIn .22s ease; }
 .allocation-ledger-summary { grid-template-columns:1.15fr 1fr 1fr 1.15fr; }
 .dashboard-seven-metrics { grid-template-columns:repeat(4,minmax(0,1fr)); gap:1rem; }
 .dashboard-seven-metrics .metric:last-child { grid-column:span 2; background:linear-gradient(135deg,#effaf5,#fff); border-color:#b9ddcf; }
