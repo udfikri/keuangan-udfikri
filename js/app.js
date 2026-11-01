@@ -202,6 +202,24 @@
     $("#appShell").classList.toggle("hidden", !authenticated);
   }
 
+  // Fetch every page: a single SELECT can be truncated by the API row limit.
+  // Order by the unique ID so equal product names cannot shuffle between pages.
+  async function fetchAllProducts(columns = "*", importId = null) {
+    const rows = [];
+    const pageSize = 500;
+    let offset = 0;
+    while (true) {
+      let query = db.from("import_products").select(columns).order("id");
+      if (importId !== null) query = query.eq("import_id", importId);
+      const result = await query.range(offset, offset + pageSize - 1);
+      const page = assertResult(result) || [];
+      if (!page.length) break;
+      rows.push(...page);
+      offset += page.length;
+    }
+    return { data: rows, error: null };
+  }
+
   async function loadData() {
     setLoading(true);
     try {
@@ -210,7 +228,7 @@
         db.from("settings").select("*").eq("id", 1).maybeSingle(),
         db.from("employees").select("*").order("name"),
         db.from("sales_imports").select("*").order("report_date", { ascending: false }),
-        db.from("import_products").select("*").order("product"),
+        fetchAllProducts(),
         db.from("salaries").select("*").order("salary_date", { ascending: false }),
         db.from("salary_withdrawals").select("*").order("withdrawal_date", { ascending: false }),
         db.from("expenses").select("*").order("expense_date", { ascending: false }),
@@ -347,7 +365,7 @@
     const report = currentReport();
     const locked = isDateLocked();
     const monthlyLocked = isMonthLocked(currentDate().slice(0, 7));
-    const products = state.products.filter(row => row.report_date === currentDate());
+    const products = state.products.filter(row => row.report_date === currentDate()).sort((a, b) => a.product.localeCompare(b.product, "id"));
     const summary = calculation();
     const payment = paymentSummary(imported);
     const totalPosts = postAllocationTotal(summary);
@@ -1017,7 +1035,7 @@
   }
 
   async function refreshImportTotals(importId) {
-    const rows = assertResult(await db.from("import_products").select("sales,profit,capital,items,discount").eq("import_id", importId));
+    const rows = assertResult(await fetchAllProducts("id,sales,profit,capital,items,discount", importId));
     const productSales = sum(rows, "sales");
     const grossProfit = sum(rows, "profit");
     assertResult(await db.from("sales_imports").update({ product_sales: productSales, gross_profit: grossProfit, capital: sum(rows, "capital"), items: sum(rows, "items"), discount: sum(rows, "discount") }).eq("id", importId));
